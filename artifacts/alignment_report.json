@@ -1,0 +1,13 @@
+{
+  "sample_count": 30,
+  "pytorch_vs_onnx_fp32": {
+    "max_abs_error_mean": 6e-06,
+    "cosine_similarity_mean": 1.0,
+    "top1_agreement": "30/30 (100.0%)"
+  },
+  "pytorch_vs_onnx_int8": {
+    "max_abs_error_mean": 1.542656,
+    "cosine_similarity_mean": 0.90014,
+    "top1_agreement": "19/30 (63.3%)"
+  }
+}

@@ -22,3 +22,17 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Python 虚拟环境与缓存
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# 中间临时模型（只保留最终需要的产物或按需忽略）
+artifacts/*_prep.onnx
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
