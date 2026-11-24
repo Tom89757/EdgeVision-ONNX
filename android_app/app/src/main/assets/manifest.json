@@ -1,0 +1,36 @@
+{
+  "model_name": "mobilenet_v3_small",
+  "opset_version": 17,
+  "input_contract": {
+    "name": "images",
+    "shape": [
+      1,
+      3,
+      224,
+      224
+    ],
+    "layout": "NCHW",
+    "dtype": "float32"
+  },
+  "output_contract": {
+    "name": "logits",
+    "shape": [
+      1,
+      1000
+    ],
+    "dtype": "float32"
+  },
+  "files": {
+    "fp32": {
+      "filename": "mobilenet_v2_fp32.onnx",
+      "bytes": 13992265,
+      "sha256": "ec32b3edb4811e0ca293d5b86d8665d049dbe6d2b9fa9bfbab75d8f80d4b8936"
+    },
+    "int8_qdq": {
+      "filename": "mobilenet_v2_int8_qdq.onnx",
+      "bytes": 3936843,
+      "sha256": "4c195b8277bb4bf60cfd8c808b58955470590e9f253b8877fd47be61777d0f15",
+      "calibration_samples": 30
+    }
+  }
+}

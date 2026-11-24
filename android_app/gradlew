@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# Gradle Wrapper 启动脚本。gradle-wrapper.jar 需由 Android Studio 或
+# `gradle wrapper` 生成，仓库不提交该二进制文件。
+
+APP_HOME=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P) || exit 1
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+
+if [ ! -f "$CLASSPATH" ]; then
+    echo "缺少 $CLASSPATH，请用 Android Studio 同步工程或执行 gradle wrapper 生成。" >&2
+    exit 1
+fi
+
+if [ -n "$JAVA_HOME" ]; then
+    JAVACMD=$JAVA_HOME/bin/java
+else
+    JAVACMD=java
+fi
+
+if ! "$JAVACMD" -version >/dev/null 2>&1; then
+    echo "未找到可用的 Java，请设置 JAVA_HOME 或安装 JDK 17。" >&2
+    exit 1
+fi
+
+DEFAULT_JVM_OPTS="-Xmx64m -Xms64m"
+
+exec "$JAVACMD" $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS \
+    -classpath "$CLASSPATH" \
+    org.gradle.wrapper.GradleWrapperMain "$@"

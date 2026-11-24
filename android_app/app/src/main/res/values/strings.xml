@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EdgeVision ONNX</string>
+    <string name="main_subtitle">MobileNetV2 端侧分类演示：相册离线打标与宠物实时监控</string>
+    <string name="asset_title">模型资产校验</string>
+    <string name="asset_checking">正在校验 assets 中的模型大小与 SHA-256…</string>
+    <string name="asset_ok">资产校验通过：%1$d 个模型，共 %2$d 字节</string>
+    <string name="asset_failed">资产校验失败：%1$s</string>
+    <string name="retry">重新校验</string>
+    <string name="model_title">模型</string>
+    <string name="model_fp32">FP32</string>
+    <string name="model_int8">INT8 QDQ</string>
+    <string name="provider_title">Execution Provider</string>
+    <string name="provider_cpu">CPU</string>
+    <string name="provider_xnnpack">XNNPACK</string>
+    <string name="provider_nnapi">NNAPI（Android 8.1+，失败自动回退）</string>
+    <string name="open_album">打开相册打标</string>
+    <string name="open_monitor">打开宠物监控</string>
+    <string name="open_benchmark">打开多后端 Benchmark</string>
+    <string name="back">返回</string>
+    <string name="album_title">智能相册离线打标</string>
+    <string name="album_hint">选择一张本地图片，推理全程在设备端完成。</string>
+    <string name="select_image">选择图片</string>
+    <string name="recognizing">正在预处理并推理…</string>
+    <string name="album_result_title">Top-K 结果</string>
+    <string name="album_result_line">%1$d. %2$s（class %3$d）  %4$.2f%%</string>
+    <string name="album_result_header">模型：%1$s　EP：%2$s\n预处理 %3$d ms　推理 %4$d ms　后处理 %5$d ms</string>
+    <string name="album_empty">尚未选择图片</string>
+    <string name="album_error">打标失败：%1$s</string>
+    <string name="album_no_result">模型未返回有效类别</string>
+    <string name="monitor_title">宠物监控</string>
+    <string name="monitor_waiting_permission">等待相机权限…</string>
+    <string name="monitor_permission_denied">未授予相机权限，无法启动实时监控。</string>
+    <string name="monitor_idle">正在启动 CameraX…</string>
+    <string name="monitor_running">监控中：约 2 FPS 分析，上一帧未完成时自动丢帧</string>
+    <string name="monitor_no_pet">当前画面未发现猫/狗</string>
+    <string name="monitor_pet">检测到猫/狗相关类别：%1$s</string>
+    <string name="monitor_pet_event">%1$s  %2$s  %3$.2f%%</string>
+    <string name="monitor_current">当前 Top-1：%1$s（class %2$d，%3$.2f%%）</string>
+    <string name="monitor_events_title">抓拍日志（仅本地记录）</string>
+    <string name="monitor_events_empty">暂无宠物事件</string>
+    <string name="monitor_error">监控异常：%1$s</string>
+    <string name="camera_error">相机启动失败：%1$s</string>
+    <string name="benchmark_title">多后端 Benchmark</string>
+    <string name="benchmark_hint">FP32 / INT8 QDQ × CPU 1/2/4 线程、XNNPACK、NNAPI，结果仅代表当前设备。</string>
+    <string name="benchmark_run">一键开始跑分</string>
+    <string name="benchmark_running">正在加载模型并执行预热 / 测量…</string>
+    <string name="benchmark_idle">尚未开始跑分</string>
+    <string name="benchmark_done">跑分完成，可导出 JSON 供 adb pull。</string>
+    <string name="benchmark_failed">跑分失败：%1$s</string>
+    <string name="benchmark_export">导出 JSON</string>
+    <string name="benchmark_export_ok">JSON 已写入应用私有目录</string>
+    <string name="benchmark_export_failed">导出失败：%1$s</string>
+    <string name="benchmark_empty">预热 5 帧，连续测量 50 帧；结果将在此处显示。</string>
+    <string name="benchmark_method">预热 %1$d 帧，连续测量 %2$d 帧；总耗时 = 预处理 + 纯推理 + 后处理。</string>
+</resources>
