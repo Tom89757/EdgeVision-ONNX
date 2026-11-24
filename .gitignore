@@ -36,3 +36,10 @@ artifacts/*_prep.onnx
 .idea/
 .vscode/
 .DS_Store
+
+# 后端运行时数据库（SQLite，不入库）
+backend_service/events.db
+backend_service/events.db-journal
+
+# Codex 后台执行日志
+.codex_logs/
