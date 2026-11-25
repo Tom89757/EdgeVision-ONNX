@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">EdgeVision ONNX</string>
+    <string name="app_name">EdgeVision</string>
     <string name="main_subtitle">端侧视觉闭环：相册 MobileNetV2 分类 + 监控 YOLOv8n 检测</string>
     <string name="asset_title">模型资产校验</string>
     <string name="asset_checking">正在校验 assets 中的模型大小与 SHA-256…</string>
