@@ -1,0 +1,95 @@
+{
+  "sample_count": 30,
+  "test_set": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images",
+  "calibration_set": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\calib_images",
+  "calibration_test_overlap": 0,
+  "thresholds": {
+    "confidence": 0.25,
+    "nms_iou": 0.45,
+    "match_iou": 0.5,
+    "focused_classes": {
+      "0": "person",
+      "15": "cat",
+      "16": "dog"
+    }
+  },
+  "numeric_layer": {
+    "pytorch_vs_onnx_fp32": {
+      "max_abs_error_global": 0.002686,
+      "max_abs_error_mean": 0.000911,
+      "cosine_similarity_mean": 1.0
+    },
+    "pytorch_vs_onnx_int8": {
+      "max_abs_error_global": 155.294968,
+      "max_abs_error_mean": 93.56294,
+      "cosine_similarity_mean": 0.999076
+    }
+  },
+  "task_layer": {
+    "reference": "pytorch_nms_detections",
+    "onnx_fp32_vs_pytorch": {
+      "true_positives": 29,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "mean_iou": 1.0,
+      "class_agreement": 1.0,
+      "geometry_matches": 29
+    },
+    "onnx_int8_vs_pytorch": {
+      "true_positives": 29,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "mean_iou": 0.956176,
+      "class_agreement": 1.0,
+      "geometry_matches": 29
+    }
+  },
+  "golden_labels": {
+    "available": false,
+    "labeled_images": 29,
+    "class_coverage": {
+      "person": 48,
+      "cat": 2,
+      "dog": 1
+    },
+    "pytorch_vs_labels": {
+      "true_positives": 28,
+      "false_positives": 1,
+      "false_negatives": 23,
+      "precision": 0.965517,
+      "recall": 0.54902,
+      "f1": 0.7,
+      "mean_iou": 0.868419,
+      "class_agreement": 1.0,
+      "geometry_matches": 28
+    },
+    "onnx_fp32_vs_labels": {
+      "true_positives": 28,
+      "false_positives": 1,
+      "false_negatives": 23,
+      "precision": 0.965517,
+      "recall": 0.54902,
+      "f1": 0.7,
+      "mean_iou": 0.868419,
+      "class_agreement": 1.0,
+      "geometry_matches": 28
+    },
+    "onnx_int8_vs_labels": {
+      "true_positives": 28,
+      "false_positives": 1,
+      "false_negatives": 23,
+      "precision": 0.965517,
+      "recall": 0.54902,
+      "f1": 0.7,
+      "mean_iou": 0.874403,
+      "class_agreement": 1.0,
+      "geometry_matches": 28
+    }
+  }
+}

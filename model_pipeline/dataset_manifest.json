@@ -1,0 +1,787 @@
+{
+  "generated_at": "2026-11-25T05:27:20.530780+00:00",
+  "source": {
+    "type": "ultralytics_coco128",
+    "location": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017",
+    "description": "COCO128：COCO train2017 的前 128 张真实图片，含 YOLO 标注",
+    "download": "https://github.com/ultralytics/assets/releases/download/v0.0.0/coco128.zip",
+    "picsum_allowed": false
+  },
+  "split_seed": 20261125,
+  "deduplication": "sha256_exact_plus_dhash_hamming_le_4",
+  "sha256_overlap": 0,
+  "calibration_count": 40,
+  "test_count": 30,
+  "test_labeled_count": 29,
+  "test_target_coverage": {
+    "person": 48,
+    "cat": 2,
+    "dog": 1
+  },
+  "test_scene_tags": {
+    "dark": 2,
+    "backlit_or_bright": 1,
+    "small_target": 4,
+    "target_in_corner": 8,
+    "overlapping_targets": 6,
+    "multi_target": 6
+  },
+  "calibration_images": [
+    {
+      "filename": "calib_001.jpg",
+      "sha256": "2cf78c1cfa98714d2ed8a643f931c39511bbb6085fddf157b27ed709089e0343",
+      "dhash": "93e119b9b9901bcb",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000394.jpg",
+      "label": null,
+      "target_boxes": 1,
+      "tags": []
+    },
+    {
+      "filename": "calib_002.jpg",
+      "sha256": "1274c3c4010d45ddd84faf1c56f7c997c0c2533e4f25c6ccea25e8233e5684e5",
+      "dhash": "2721250d0d0d0d0c",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000490.jpg",
+      "label": null,
+      "target_boxes": 1,
+      "tags": [
+        "dark",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_003.jpg",
+      "sha256": "3139fdefaa9b4320c8a4eec2032c77306a0fd167dd88633bd73f66f952baf5a7",
+      "dhash": "2c0a3e3c3c3636a6",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000078.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_004.jpg",
+      "sha256": "1a5d039418eacc09510efabcd466dc05701f0dac9ae0040b05a1b30b796ef96e",
+      "dhash": "0304015858499337",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000360.jpg",
+      "label": null,
+      "target_boxes": 2,
+      "tags": [
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_005.jpg",
+      "sha256": "ef93fd2248a41119a34a86d11478b87bd0c715ff3c2c65f3f5f54a3f31a3dedf",
+      "dhash": "c6cc3c7cd8ae6792",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000542.jpg",
+      "label": null,
+      "target_boxes": 12,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target"
+      ]
+    },
+    {
+      "filename": "calib_006.jpg",
+      "sha256": "40087a8191fc80eba012c1ba4735402b4890aa0669a84ea0d3dac043ca543247",
+      "dhash": "cf878763d3cddb9a",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000309.jpg",
+      "label": null,
+      "target_boxes": 1,
+      "tags": [
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_007.jpg",
+      "sha256": "186a1427f32ce7e5cf17052f66d5ee7cd57d7f83762001891e16195a6bda586d",
+      "dhash": "1f39396393972f8f",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000164.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_008.jpg",
+      "sha256": "8152ff314326c47105e065ec16ef28e1baa9dd640f40475fe385b612d5e65cf1",
+      "dhash": "00082082021c9c48",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000595.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_009.jpg",
+      "sha256": "93d0d304967360bed3bfe2aafc701817e83f494c687e625fb8b765d2be54c9b2",
+      "dhash": "998dd656706426ec",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000072.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_010.jpg",
+      "sha256": "886950d096ad454f0bbb9a63167c795bd49eb9d4c0cb24a72888b3429d11900a",
+      "dhash": "4d4d684a62a6140d",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000092.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_011.jpg",
+      "sha256": "a1a9ac88e4c5cfbdd1cd425a6d262b1e78bf32676a9c17a2861ca6a23a731955",
+      "dhash": "313929b812e6ad73",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000061.jpg",
+      "label": null,
+      "target_boxes": 3,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target"
+      ]
+    },
+    {
+      "filename": "calib_012.jpg",
+      "sha256": "9e1c9d4c88d38e6a2cd2f775bea82c137c14dc3b13f8430bcdadcb89ab0b7022",
+      "dhash": "07076c4daf939f0f",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000488.jpg",
+      "label": null,
+      "target_boxes": 6,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_013.jpg",
+      "sha256": "1e1d801e63ed90d34ee666845ebcc17b56edef1f864d048ff588ce7073bc94a2",
+      "dhash": "7efe9672e3b3d365",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000196.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_014.jpg",
+      "sha256": "60ad7a794ae3032c302c4e1d5111099921ce7e8df23df4401f60bdc74dc83bf1",
+      "dhash": "0025197b6e968c27",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000581.jpg",
+      "label": null,
+      "target_boxes": 1,
+      "tags": []
+    },
+    {
+      "filename": "calib_015.jpg",
+      "sha256": "f6d313afba47fe0747d1d78cd342f420eb305de8faadb5cb164de428522b40d6",
+      "dhash": "766e4f0d0f171793",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000389.jpg",
+      "label": null,
+      "target_boxes": 12,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_016.jpg",
+      "sha256": "111bb407e512f23fcc14bbc51ad4b312b0797332aab86ecd9373808286ed30b1",
+      "dhash": "1f0f0f131b0f1f4f",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000531.jpg",
+      "label": null,
+      "target_boxes": 8,
+      "tags": [
+        "multi_target",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_017.jpg",
+      "sha256": "39d967c7856965853e90b9283db4a6895a034eb17fe0c84581d17af4a59edcf2",
+      "dhash": "1331225b5849d6f4",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000110.jpg",
+      "label": null,
+      "target_boxes": 10,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_018.jpg",
+      "sha256": "ae711135026cbd548fa1e04edc0ee96bce57162587e0238e7f76b4dc46cf4208",
+      "dhash": "8ec233304da7635b",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000257.jpg",
+      "label": null,
+      "target_boxes": 13,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_019.jpg",
+      "sha256": "8d823d141724cc8656ccd48b49d6e44556ca399fbbd8458cc488f0d9816809a4",
+      "dhash": "bbe9b12c0e6b67e7",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000395.jpg",
+      "label": null,
+      "target_boxes": 11,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_020.jpg",
+      "sha256": "be76e3e5bed8c8a9a0d8081844bfca7ce013093e746b66aad13922373644ad32",
+      "dhash": "44c6c6e2c24acade",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000629.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_021.jpg",
+      "sha256": "1f67bf49851ff43dba866f0cd6cc1b6f1d35ee75255a6092483550548584f477",
+      "dhash": "20031cf86706266f",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000564.jpg",
+      "label": null,
+      "target_boxes": 2,
+      "tags": [
+        "dark",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_022.jpg",
+      "sha256": "60745e50cb857e4683d3622ac6c1e7ade63bd73ee458eb76a70455badaee2869",
+      "dhash": "1fdde5f0d0607c3a",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000532.jpg",
+      "label": null,
+      "target_boxes": 4,
+      "tags": [
+        "multi_target",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_023.jpg",
+      "sha256": "4a17dd87b487b4b6432d3aa60f6026a5349c8708834a3cae141ff16e0539a32c",
+      "dhash": "0f0f26d2b2a46880",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000073.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_024.jpg",
+      "sha256": "0fc73f660a10ed91c52f76a2b34b5fa252bf70ff84f7b2a35374726388528ca2",
+      "dhash": "773f69a39e130727",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000508.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_025.jpg",
+      "sha256": "9d924b4353cca7295c149e3659866a18e78234f0dc701df119191152f4a31fec",
+      "dhash": "81280d2323339727",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000599.jpg",
+      "label": null,
+      "target_boxes": 1,
+      "tags": [
+        "dark"
+      ]
+    },
+    {
+      "filename": "calib_026.jpg",
+      "sha256": "8eae4239a000d602acb4c58801a3c070e4bf3da608e57e7a3dcbd5ef719895cc",
+      "dhash": "389cce48282c611f",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000641.jpg",
+      "label": null,
+      "target_boxes": 9,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_027.jpg",
+      "sha256": "5011e5e9eac564d30fa652281a7fd1d7693545077971741a241f400611e4c33e",
+      "dhash": "9e17252931490e4e",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000397.jpg",
+      "label": null,
+      "target_boxes": 1,
+      "tags": [
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_028.jpg",
+      "sha256": "8ba0ed80d34589221b1243e0764471d91716b3a267827cb37ecfc3cfae52cc90",
+      "dhash": "0954d4acc8a4ea6a",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000328.jpg",
+      "label": null,
+      "target_boxes": 3,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_029.jpg",
+      "sha256": "4efc7ce561df432c2d3d9a60040f62b1b8389b36b401269bfc6802065dfcb9d8",
+      "dhash": "19b9787372723212",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000201.jpg",
+      "label": null,
+      "target_boxes": 2,
+      "tags": [
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_030.jpg",
+      "sha256": "cc75d90eac7419395e81ddd7e33c81dbec387892e086b40cbf12dc3fe09f8bb1",
+      "dhash": "66b7fba10020bf8e",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000415.jpg",
+      "label": null,
+      "target_boxes": 1,
+      "tags": [
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_031.jpg",
+      "sha256": "e86077ae0fa75248880ca12cdc9ef09bb68fa68083313ce280fd77082c780769",
+      "dhash": "0c33f38404190400",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000472.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_032.jpg",
+      "sha256": "0938276afa762c367dac4968bc9a3d4abf9d83db1f4bea67262bff976568e24c",
+      "dhash": "7133db6b13939fc9",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000625.jpg",
+      "label": null,
+      "target_boxes": 3,
+      "tags": [
+        "multi_target"
+      ]
+    },
+    {
+      "filename": "calib_033.jpg",
+      "sha256": "f599082d9c87db6029fc3d6e468074d1294dc98a8755152ca7324811aa1d10cd",
+      "dhash": "cdc025b5d28a6d02",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000544.jpg",
+      "label": null,
+      "target_boxes": 13,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_034.jpg",
+      "sha256": "84b778ac377b3fb394edee6f6c3e688c600a3ac440247b64942b1e6e116ff9a3",
+      "dhash": "b9cdc9184ecf0371",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000436.jpg",
+      "label": null,
+      "target_boxes": 1,
+      "tags": []
+    },
+    {
+      "filename": "calib_035.jpg",
+      "sha256": "e20c569a1e6174fd845a434a3fe3d50fb4f8a0e275fb348cc2c9b42a11600ccc",
+      "dhash": "000b3c6466061414",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000136.jpg",
+      "label": null,
+      "target_boxes": 2,
+      "tags": [
+        "overlapping_targets",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "calib_036.jpg",
+      "sha256": "8da8a8320518a8adadbbd79615e066fd60b31c6025919665264ff9d0f746a5dd",
+      "dhash": "0f0f632f9e0d4d48",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000359.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_037.jpg",
+      "sha256": "d8c9b6803795082707fcd62f2d1d38826709836504e330db3e7b4713c3316d59",
+      "dhash": "1f4f1d4b9b9a999a",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000326.jpg",
+      "label": null,
+      "target_boxes": 1,
+      "tags": [
+        "dark"
+      ]
+    },
+    {
+      "filename": "calib_038.jpg",
+      "sha256": "8e948d6888e7bf449e91883d3a2b0d61804308aada31fbf289add4da4dd978e8",
+      "dhash": "397d317363cb9bd3",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000636.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "calib_039.jpg",
+      "sha256": "2d3d9e0b4b165c0f783b97cd963097b13effa1af851c9576617fb7c910d63cd8",
+      "dhash": "899898b19689c9a8",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000165.jpg",
+      "label": null,
+      "target_boxes": 2,
+      "tags": [
+        "overlapping_targets"
+      ]
+    },
+    {
+      "filename": "calib_040.jpg",
+      "sha256": "9135dd0723240d2d4f64ce2173901a0f23a222dea98b72e1259c28f28fa2aab6",
+      "dhash": "4f4f27272c983926",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000605.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    }
+  ],
+  "test_images": [
+    {
+      "filename": "test_001.jpg",
+      "sha256": "66bff049c25ed6498e69a51ac65b88d5fc800233fed0f89ee07ab178f7db766d",
+      "dhash": "7e7c2b6b3b373737",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000294.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_001.txt",
+      "target_boxes": 1,
+      "tags": [
+        "dark"
+      ]
+    },
+    {
+      "filename": "test_002.jpg",
+      "sha256": "03d4d20019d5abdf6f9314a166f8f8cf582f1d0d2167beef7ec2400d0f1b629e",
+      "dhash": "918ed2d2c6d2dad8",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000143.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_002.txt",
+      "target_boxes": 0,
+      "tags": [
+        "backlit_or_bright"
+      ]
+    },
+    {
+      "filename": "test_003.jpg",
+      "sha256": "0ce2f02f39d5d49260d91762bc9a659f8f9d516d8e416c8120306330bfd58023",
+      "dhash": "e6e6b8c487292b19",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000127.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_003.txt",
+      "target_boxes": 1,
+      "tags": [
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "test_004.jpg",
+      "sha256": "5804350236bc0d52715f9354498d52f8d260b0e3d8f965526cd85ca6a18b7caa",
+      "dhash": "c04c1892828a0213",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000315.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_004.txt",
+      "target_boxes": 13,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "test_005.jpg",
+      "sha256": "f6483d57885c348a27dcdc272e4bd5296c75596d7c64fe638b24dbb503209902",
+      "dhash": "44844ca62605140c",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000443.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_005.txt",
+      "target_boxes": 4,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "test_006.jpg",
+      "sha256": "745e538b3979ffa93f63bb294163e173d9a99413bce6cf3289215b541c9f1eb1",
+      "dhash": "124e462a425676c2",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000536.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_006.txt",
+      "target_boxes": 3,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "test_007.jpg",
+      "sha256": "5393bf6575c435daa599c1272d9e61e99c099994ae4d3755311684663fed0917",
+      "dhash": "031ac547544c6765",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000071.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_007.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_008.jpg",
+      "sha256": "f611f233ff6657baa61f32f573a213ef1b1af031e892f8b4e287c21a856497e7",
+      "dhash": "0b432c2e67421b23",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000597.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_008.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_009.jpg",
+      "sha256": "406f84619f5197d416f60566d41ad4d58f1d10b0a182652bbda266eedbc3f1ab",
+      "dhash": "6c7a72b4ecfaf1e1",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000064.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_009.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_010.jpg",
+      "sha256": "e5a6b72ea2fda1cd1ea969018036e6da16fa491f9a2ac974a7361b539b00a155",
+      "dhash": "0f1a438188585b39",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000474.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_010.txt",
+      "target_boxes": 1,
+      "tags": []
+    },
+    {
+      "filename": "test_011.jpg",
+      "sha256": "0255bce78addf8d82e9f5d434ad2a98fccd5542cbb041980ce7ad00054a3227e",
+      "dhash": "d6ecf1f0f29babae",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000138.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_011.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_012.jpg",
+      "sha256": "4ec415419155289eefffa7a620ed77bdeee94f477225e87ceaa00cb5f2515fe7",
+      "dhash": "7fbb9a8eccec4917",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000030.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_012.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_013.jpg",
+      "sha256": "2938c94a9b07cacf10a8343c35949b065ae868190a11020f458f50450bd13552",
+      "dhash": "870d5951389c9490",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000154.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_013.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_014.jpg",
+      "sha256": "0d3719ec6f6f54229f498f7b01b113a864cd1eeccac196086741d98e23ae2455",
+      "dhash": "5d3d3e6a1e1f9e9e",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000370.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_014.txt",
+      "target_boxes": 1,
+      "tags": []
+    },
+    {
+      "filename": "test_015.jpg",
+      "sha256": "8ad9716416dc27aeff76bb09d936949f67627cb30948288b61c117df34501049",
+      "dhash": "c66e3edc9ca0091f",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000349.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_015.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_016.jpg",
+      "sha256": "dfbae064fadcaa79bd319410903bc92052349472115e2d515e0ecf3c944d1048",
+      "dhash": "6e6f3333734f9673",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000384.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_016.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_017.jpg",
+      "sha256": "a4e4243da053d3a958a1f52fd8fe9cc264d39e07077266a7089b281597050a29",
+      "dhash": "73f6b1f3270dd9dd",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000250.jpg",
+      "label": null,
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_018.jpg",
+      "sha256": "51d5f657eacbc0f37f0d847f903abc90bb33479fa0459fdc64ebbeb5cac34d99",
+      "dhash": "dae6677bc3030f8f",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000113.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_018.txt",
+      "target_boxes": 3,
+      "tags": [
+        "multi_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "test_019.jpg",
+      "sha256": "c46b3242d195c8c81b6776f4bfa385ef886ff1e7cb814e2c29e03303b85403b2",
+      "dhash": "010219981b656403",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000404.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_019.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_020.jpg",
+      "sha256": "c2fcc1d44e81016f4c53e7e610c44dc28a2ca1bc5e73f73623129d261bff15e2",
+      "dhash": "018773e7cd30ab32",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000510.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_020.txt",
+      "target_boxes": 1,
+      "tags": []
+    },
+    {
+      "filename": "test_021.jpg",
+      "sha256": "f7ce0feeb7699cd56886c64ac4ea923c76be97b34ee3a2ea0909c45e08411ec0",
+      "dhash": "d9d239393332e7d3",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000502.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_021.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_022.jpg",
+      "sha256": "c839076b4fa14020f97c8a5909c84a1e85c912ca262a91c8c4648ebe27caf61f",
+      "dhash": "d115409686244c94",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000307.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_022.txt",
+      "target_boxes": 1,
+      "tags": [
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "test_023.jpg",
+      "sha256": "939b5473ea4787a01c2293a3e62979442eea5c9b3dcaab8803c07a5b6d47e087",
+      "dhash": "2e032516130d0d09",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000357.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_023.txt",
+      "target_boxes": 13,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "test_024.jpg",
+      "sha256": "14007b87745069ed85c6412dffc8ad11a22de98d5f5c9ae896523e12622961c5",
+      "dhash": "7169e1b4e4291a1f",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000241.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_024.txt",
+      "target_boxes": 5,
+      "tags": [
+        "multi_target",
+        "overlapping_targets",
+        "small_target",
+        "target_in_corner"
+      ]
+    },
+    {
+      "filename": "test_025.jpg",
+      "sha256": "9f016b98f31e4fe826910e56ee39fa0c2889f48d38cc5f4f6b6421c8c5fc7214",
+      "dhash": "00480f8243e1814e",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000025.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_025.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_026.jpg",
+      "sha256": "cc548c7e669fefde96bdb7b1454c90cf518d414b85eb36827cc78f488d622e5a",
+      "dhash": "090d0d0d1d6b0e36",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000089.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_026.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_027.jpg",
+      "sha256": "32099f009fcb436bad1bd59b5d48b3e5620fa667a83db5a09879e158dd346103",
+      "dhash": "1f37675a8e484c2e",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000540.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_027.txt",
+      "target_boxes": 0,
+      "tags": []
+    },
+    {
+      "filename": "test_028.jpg",
+      "sha256": "b028805b2fb2c666ef72d4a7a01677bcf0ed56fb4d14cadc8646acdf379999c7",
+      "dhash": "7fffbd0212070703",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000589.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_028.txt",
+      "target_boxes": 1,
+      "tags": [
+        "dark"
+      ]
+    },
+    {
+      "filename": "test_029.jpg",
+      "sha256": "5d9958bdec3062b05090258293a19af01d231de69b943d1ff0bb4a7b943e6db3",
+      "dhash": "173163c1d839270f",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000529.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_029.txt",
+      "target_boxes": 2,
+      "tags": [
+        "overlapping_targets"
+      ]
+    },
+    {
+      "filename": "test_030.jpg",
+      "sha256": "9bb45795336c1d05189fe51a77e04270cd1da8929d62060926798f3dd2d25204",
+      "dhash": "cf999179793939e4",
+      "source": "D:\\Desktop\\深入理解Android\\datasets\\coco128\\images\\train2017\\000000000650.jpg",
+      "label": "D:\\Desktop\\DSH\\EdgeVision-ONNX\\model_pipeline\\test_images\\labels\\test_030.txt",
+      "target_boxes": 1,
+      "tags": []
+    }
+  ]
+}

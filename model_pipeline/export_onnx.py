@@ -1,12 +1,14 @@
 import hashlib
 import json
 from pathlib import Path
+
 import onnx
 import torch
 # from torchvision.models import MobileNet_V3_Small_Weights, mobilenet_v3_small
 from torchvision.models import MobileNet_V2_Weights, mobilenet_v2
 
-ARTIFACTS_DIR = Path("../artifacts")
+
+ARTIFACTS_DIR = Path(__file__).resolve().parent.parent / "artifacts"
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # ONNX_FP32_PATH = ARTIFACTS_DIR / "mobilenet_v3_small_fp32.onnx"
@@ -39,7 +41,7 @@ def main() -> None:
         output_names=["logits"],
         opset_version=17,
         do_constant_folding=True,
-        dynamo=False, # 导出单文件FP32，避免外部 .data拆分
+        dynamo=False,  # 导出单文件 FP32，避免外部 .data 拆分
     )
 
     # 3. 结构与类型校验
@@ -47,18 +49,20 @@ def main() -> None:
     onnx.checker.check_model(onnx_model)
 
     # 4. 写入模型资产契约（版本、shape、字节数、SHA-256）
-    manifest = {
-        "model_name": "mobilenet_v3_small",
-        "opset_version": 17,
-        "input_contract": {"name": "images", "shape": [1, 3, 224, 224], "layout": "NCHW", "dtype": "float32"},
-        "output_contract": {"name": "logits", "shape": [1, 1000], "dtype": "float32"},
-        "files": {
-            "fp32": {
-                "filename": ONNX_FP32_PATH.name,
-                "bytes": ONNX_FP32_PATH.stat().st_size,
-                "sha256": file_sha256(ONNX_FP32_PATH),
-            }
-        },
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8")) if MANIFEST_PATH.exists() else {}
+    manifest["model_name"] = "mobilenet_v3_small"
+    manifest["opset_version"] = 17
+    manifest["input_contract"] = {
+        "name": "images",
+        "shape": [1, 3, 224, 224],
+        "layout": "NCHW",
+        "dtype": "float32",
+    }
+    manifest["output_contract"] = {"name": "logits", "shape": [1, 1000], "dtype": "float32"}
+    manifest.setdefault("files", {})["fp32"] = {
+        "filename": ONNX_FP32_PATH.name,
+        "bytes": ONNX_FP32_PATH.stat().st_size,
+        "sha256": file_sha256(ONNX_FP32_PATH),
     }
     MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"[OK] Exported FP32 ONNX: {ONNX_FP32_PATH} ({ONNX_FP32_PATH.stat().st_size / 1e6:.2f} MB)")
