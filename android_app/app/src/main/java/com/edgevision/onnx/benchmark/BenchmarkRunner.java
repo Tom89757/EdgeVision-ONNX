@@ -7,6 +7,7 @@ import android.os.Debug;
 import android.text.TextUtils;
 
 import com.edgevision.onnx.ml.OnnxClassifier;
+import com.edgevision.onnx.ml.YoloDetector;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -38,6 +39,12 @@ public final class BenchmarkRunner {
     public static final int WARMUP_FRAMES = 5;
     public static final int MEASURED_FRAMES = 50;
     public static final int TOP_K = 5;
+
+    /** 被测模型族：分类器（MobileNetV2）或检测器（YOLOv8n）。 */
+    enum ModelKind { CLASSIFIER, DETECTOR }
+
+    /** 统一的 Execution Provider 描述，运行时映射到各自枚举。 */
+    enum Provider { CPU, XNNPACK, NNAPI }
 
     private final Context appContext;
 
@@ -90,8 +97,10 @@ public final class BenchmarkRunner {
     }
 
     public static final class Result {
-        private final OnnxClassifier.Model model;
-        private final OnnxClassifier.ExecutionProvider requestedProvider;
+        private final ModelKind kind;
+        private final String modelDisplayName;
+        private final String modelAssetKey;
+        private final Provider requestedProvider;
         private final int requestedThreads;
         private final String actualProvider;
         private final long coldLoadNanos;
@@ -109,8 +118,10 @@ public final class BenchmarkRunner {
         private final ProfilingCapture profiling;
 
         private Result(
-                OnnxClassifier.Model model,
-                OnnxClassifier.ExecutionProvider requestedProvider,
+                ModelKind kind,
+                String modelDisplayName,
+                String modelAssetKey,
+                Provider requestedProvider,
                 int requestedThreads,
                 String actualProvider,
                 long coldLoadNanos,
@@ -126,7 +137,9 @@ public final class BenchmarkRunner {
                 double pssMb,
                 String error,
                 ProfilingCapture profiling) {
-            this.model = model;
+            this.kind = kind;
+            this.modelDisplayName = modelDisplayName;
+            this.modelAssetKey = modelAssetKey;
             this.requestedProvider = requestedProvider;
             this.requestedThreads = requestedThreads;
             this.actualProvider = actualProvider;
@@ -148,7 +161,9 @@ public final class BenchmarkRunner {
         private static Result failed(
                 Configuration configuration, String actualProvider, String error) {
             return new Result(
-                    configuration.model,
+                    configuration.kind,
+                    configuration.displayName(),
+                    configuration.assetKey(),
                     configuration.provider,
                     configuration.threads,
                     actualProvider,
@@ -167,11 +182,19 @@ public final class BenchmarkRunner {
                     null);
         }
 
-        public OnnxClassifier.Model getModel() {
-            return model;
+        public ModelKind getKind() {
+            return kind;
         }
 
-        public OnnxClassifier.ExecutionProvider getRequestedProvider() {
+        public String getModelDisplayName() {
+            return modelDisplayName;
+        }
+
+        public String getModelAssetKey() {
+            return modelAssetKey;
+        }
+
+        public Provider getRequestedProvider() {
             return requestedProvider;
         }
 
@@ -244,10 +267,10 @@ public final class BenchmarkRunner {
         }
 
         public String getConfigurationLabel() {
-            String providerLabel = requestedProvider == OnnxClassifier.ExecutionProvider.CPU
+            String providerLabel = requestedProvider == Provider.CPU
                     ? "CPU ×" + requestedThreads + " 线程"
                     : requestedProvider.name() + "（线程自动）";
-            return model.getDisplayName() + " / " + providerLabel;
+            return modelDisplayName + " / " + providerLabel;
         }
     }
 
@@ -299,7 +322,7 @@ public final class BenchmarkRunner {
         method.put("measured_frames", MEASURED_FRAMES);
         method.put("top_k", TOP_K);
         method.put("timing_definition", "预处理(含输入 Tensor 构造) + session.run + 后处理");
-        method.put("input", "640x480 ARGB_8888 合成图，缩放到 224x224");
+        method.put("input", "640x480 ARGB_8888 合成图；分类器缩放到 224x224，检测器 Letterbox 到 320x320");
         method.put("profiling",
                 "稳态测量后用独立 Session 开启 enableProfiling 并执行单帧；"
                         + "profile JSON 的 Node.dur 单位为微秒，args.provider 为实际执行 EP");
@@ -308,9 +331,9 @@ public final class BenchmarkRunner {
         JSONArray resultArray = new JSONArray();
         for (Result result : report.results) {
             JSONObject item = new JSONObject();
-            item.put("model", result.model.getDisplayName());
-            item.put("model_key", result.model.getAssetKey());
-            item.put("requested_provider", result.requestedProvider.name());
+            item.put("model", result.getModelDisplayName());
+            item.put("model_key", result.getModelAssetKey());
+            item.put("requested_provider", result.getRequestedProvider().name());
             item.put("requested_threads", result.requestedThreads);
             item.put("actual_provider", result.actualProvider);
             item.put("success", result.isSuccessful());
@@ -362,10 +385,36 @@ public final class BenchmarkRunner {
     }
 
     private Result runConfiguration(Configuration configuration, Bitmap benchmarkBitmap) {
+        return configuration.kind == ModelKind.CLASSIFIER
+                ? runClassifier(configuration, benchmarkBitmap)
+                : runDetector(configuration, benchmarkBitmap);
+    }
+
+    private static OnnxClassifier.ExecutionProvider classifierProvider(Provider provider) {
+        if (provider == Provider.XNNPACK) {
+            return OnnxClassifier.ExecutionProvider.XNNPACK;
+        }
+        if (provider == Provider.NNAPI) {
+            return OnnxClassifier.ExecutionProvider.NNAPI;
+        }
+        return OnnxClassifier.ExecutionProvider.CPU;
+    }
+
+    private static YoloDetector.ExecutionProvider detectorProvider(Provider provider) {
+        if (provider == Provider.XNNPACK) {
+            return YoloDetector.ExecutionProvider.XNNPACK;
+        }
+        if (provider == Provider.NNAPI) {
+            return YoloDetector.ExecutionProvider.NNAPI;
+        }
+        return YoloDetector.ExecutionProvider.CPU;
+    }
+
+    private Result runClassifier(Configuration configuration, Bitmap bitmap) {
         OnnxClassifier classifier = OnnxClassifier.getInstance(
                 appContext,
-                configuration.model,
-                configuration.provider,
+                configuration.classifierModel,
+                classifierProvider(configuration.provider),
                 configuration.threads);
         String actualProvider = "未加载";
         try {
@@ -374,12 +423,9 @@ public final class BenchmarkRunner {
             long coldLoadNanos = System.nanoTime() - loadStart;
             actualProvider = classifier.getActualProvider();
 
-            OnnxClassifier.TimedClassification first =
-                    classifier.classifySync(benchmarkBitmap, TOP_K);
-            long firstFrameNanos = first.getTotalNanos();
-
+            long firstFrameNanos = classifier.classifySync(bitmap, TOP_K).getTotalNanos();
             for (int i = 0; i < WARMUP_FRAMES; i++) {
-                classifier.classifySync(benchmarkBitmap, TOP_K);
+                classifier.classifySync(bitmap, TOP_K);
             }
 
             long[] preprocess = new long[MEASURED_FRAMES];
@@ -387,41 +433,17 @@ public final class BenchmarkRunner {
             long[] postprocess = new long[MEASURED_FRAMES];
             long[] total = new long[MEASURED_FRAMES];
             for (int i = 0; i < MEASURED_FRAMES; i++) {
-                OnnxClassifier.TimedClassification timed =
-                        classifier.classifySync(benchmarkBitmap, TOP_K);
+                OnnxClassifier.TimedClassification timed = classifier.classifySync(bitmap, TOP_K);
                 preprocess[i] = timed.getPreprocessNanos();
                 inference[i] = timed.getInferenceNanos();
                 postprocess[i] = timed.getPostprocessNanos();
                 total[i] = timed.getTotalNanos();
             }
 
-            double[] preprocessSummary = percentileSummary(preprocess);
-            double[] inferenceSummary = percentileSummary(inference);
-            double[] postprocessSummary = percentileSummary(postprocess);
-            double[] totalSummary = percentileSummary(total);
-            double pssMb = currentPssMb();
-
             classifier.releaseSession();
-            ProfilingCapture profiling = captureProfiling(configuration, benchmarkBitmap);
-
-            return new Result(
-                    configuration.model,
-                    configuration.provider,
-                    configuration.threads,
-                    actualProvider,
-                    coldLoadNanos,
-                    firstFrameNanos,
-                    preprocessSummary[0],
-                    preprocessSummary[1],
-                    inferenceSummary[0],
-                    inferenceSummary[1],
-                    postprocessSummary[0],
-                    postprocessSummary[1],
-                    totalSummary[0],
-                    totalSummary[1],
-                    pssMb,
-                    null,
-                    profiling);
+            ProfilingCapture profiling = captureProfiling(configuration, bitmap);
+            return buildResult(configuration, actualProvider, coldLoadNanos, firstFrameNanos,
+                    preprocess, inference, postprocess, total, profiling);
         } catch (Throwable error) {
             actualProvider = classifier.getActualProvider();
             String message = error.getMessage() == null
@@ -432,27 +454,109 @@ public final class BenchmarkRunner {
         }
     }
 
+    private Result runDetector(Configuration configuration, Bitmap bitmap) {
+        YoloDetector detector = YoloDetector.getInstance(
+                appContext,
+                configuration.detectorModel,
+                detectorProvider(configuration.provider),
+                configuration.threads);
+        String actualProvider = "未加载";
+        try {
+            long loadStart = System.nanoTime();
+            detector.ensureSessionLoaded();
+            long coldLoadNanos = System.nanoTime() - loadStart;
+            actualProvider = detector.getActualProvider();
+
+            long firstFrameNanos = detector.detectSync(bitmap).getTotalNanos();
+            for (int i = 0; i < WARMUP_FRAMES; i++) {
+                detector.detectSync(bitmap);
+            }
+
+            long[] preprocess = new long[MEASURED_FRAMES];
+            long[] inference = new long[MEASURED_FRAMES];
+            long[] postprocess = new long[MEASURED_FRAMES];
+            long[] total = new long[MEASURED_FRAMES];
+            for (int i = 0; i < MEASURED_FRAMES; i++) {
+                YoloDetector.TimedDetection timed = detector.detectSync(bitmap);
+                preprocess[i] = timed.getPreprocessNanos();
+                inference[i] = timed.getInferenceNanos();
+                postprocess[i] = timed.getPostprocessNanos();
+                total[i] = timed.getTotalNanos();
+            }
+
+            detector.releaseSession();
+            ProfilingCapture profiling = captureProfiling(configuration, bitmap);
+            return buildResult(configuration, actualProvider, coldLoadNanos, firstFrameNanos,
+                    preprocess, inference, postprocess, total, profiling);
+        } catch (Throwable error) {
+            actualProvider = detector.getActualProvider();
+            String message = error.getMessage() == null
+                    ? error.getClass().getSimpleName() : error.getMessage();
+            return Result.failed(configuration, actualProvider, message);
+        } finally {
+            detector.releaseSession();
+        }
+    }
+
+    private Result buildResult(
+            Configuration configuration,
+            String actualProvider,
+            long coldLoadNanos,
+            long firstFrameNanos,
+            long[] preprocess,
+            long[] inference,
+            long[] postprocess,
+            long[] total,
+            ProfilingCapture profiling) {
+        double[] preprocessSummary = percentileSummary(preprocess);
+        double[] inferenceSummary = percentileSummary(inference);
+        double[] postprocessSummary = percentileSummary(postprocess);
+        double[] totalSummary = percentileSummary(total);
+        double pssMb = currentPssMb();
+        return new Result(
+                configuration.kind,
+                configuration.displayName(),
+                configuration.assetKey(),
+                configuration.provider,
+                configuration.threads,
+                actualProvider,
+                coldLoadNanos,
+                firstFrameNanos,
+                preprocessSummary[0],
+                preprocessSummary[1],
+                inferenceSummary[0],
+                inferenceSummary[1],
+                postprocessSummary[0],
+                postprocessSummary[1],
+                totalSummary[0],
+                totalSummary[1],
+                pssMb,
+                null,
+                profiling);
+    }
+
     /**
      * 用独立 Session 跑单帧 profiling。这里显式调用 SessionOptions.enableProfiling，
      * 因此 profile 文件只覆盖一次 session.run，不会混入 50 帧稳态测量的噪声。
      */
     private ProfilingCapture captureProfiling(Configuration configuration, Bitmap benchmarkBitmap) {
+        return configuration.kind == ModelKind.CLASSIFIER
+                ? captureClassifierProfiling(configuration, benchmarkBitmap)
+                : captureDetectorProfiling(configuration, benchmarkBitmap);
+    }
+
+    private ProfilingCapture captureClassifierProfiling(
+            Configuration configuration, Bitmap benchmarkBitmap) {
         String profilePath = null;
         try {
             File directory = profilingDirectory();
-            String prefixName = String.format(
-                    Locale.ROOT,
-                    "profile_%s_%s_%d_%d",
-                    configuration.model.getAssetKey(),
-                    configuration.provider.name().toLowerCase(Locale.ROOT),
-                    configuration.threads,
-                    System.currentTimeMillis());
+            String prefixName = profilePrefix(configuration);
             String prefixPath = new File(directory, prefixName).getAbsolutePath();
 
             OnnxClassifier profiler = OnnxClassifier.createTransient(
                     appContext,
-                    configuration.model,
-                    configuration.provider,
+                    configuration.classifierModel,
+                    classifierProvider(configuration.provider),
                     configuration.threads,
                     options -> options.enableProfiling(prefixPath));
             try {
@@ -472,6 +576,49 @@ public final class BenchmarkRunner {
                     ? error.getClass().getSimpleName() : error.getMessage();
             return new ProfilingCapture(profilePath, null, message);
         }
+    }
+
+    private ProfilingCapture captureDetectorProfiling(
+            Configuration configuration, Bitmap benchmarkBitmap) {
+        String profilePath = null;
+        try {
+            File directory = profilingDirectory();
+            String prefixName = profilePrefix(configuration);
+            String prefixPath = new File(directory, prefixName).getAbsolutePath();
+
+            YoloDetector profiler = YoloDetector.createTransient(
+                    appContext,
+                    configuration.detectorModel,
+                    detectorProvider(configuration.provider),
+                    configuration.threads,
+                    options -> options.enableProfiling(prefixPath));
+            try {
+                profiler.ensureSessionLoaded();
+                profiler.detectSync(benchmarkBitmap);
+                profilePath = profiler.endProfiling();
+                if (profilePath == null || !new File(profilePath).isFile()) {
+                    profilePath = findProfileFile(directory, prefixName);
+                }
+                JSONObject summary = summarizeProfile(profilePath, profiler.getActualProvider());
+                return new ProfilingCapture(profilePath, summary, null);
+            } finally {
+                profiler.releaseSession();
+            }
+        } catch (Throwable error) {
+            String message = error.getMessage() == null
+                    ? error.getClass().getSimpleName() : error.getMessage();
+            return new ProfilingCapture(profilePath, null, message);
+        }
+    }
+
+    private String profilePrefix(Configuration configuration) {
+        return String.format(
+                Locale.ROOT,
+                "profile_%s_%s_%d_%d",
+                configuration.assetKey(),
+                configuration.provider.name().toLowerCase(Locale.ROOT),
+                configuration.threads,
+                System.currentTimeMillis());
     }
 
     private File profilingDirectory() throws IOException {
@@ -521,8 +668,12 @@ public final class BenchmarkRunner {
 
         String content = new String(
                 Files.readAllBytes(profileFile.toPath()), StandardCharsets.UTF_8);
-        JSONObject root = new JSONObject(content);
-        JSONArray events = root.optJSONArray("traceEvents");
+//        JSONObject root = new JSONObject(content);
+//        JSONArray events = root.optJSONArray("traceEvents");
+        String trimmed = content.trim();
+        JSONArray events = trimmed.startsWith("[")
+                ? new JSONArray(trimmed)
+                : new JSONObject(trimmed).optJSONArray("traceEvents");
         if (events == null) {
             throw new JSONException("profiling JSON 缺少 traceEvents");
         }
@@ -674,47 +825,84 @@ public final class BenchmarkRunner {
 
     private static List<Configuration> buildConfigurations() {
         List<Configuration> configurations = new ArrayList<>();
-        addModelConfigurations(configurations, OnnxClassifier.Model.FP32);
-        addModelConfigurations(configurations, OnnxClassifier.Model.INT8_QDQ);
+        addClassifierConfigurations(configurations, OnnxClassifier.Model.FP32);
+        addClassifierConfigurations(configurations, OnnxClassifier.Model.INT8_QDQ);
+        addDetectorConfigurations(configurations, YoloDetector.Model.FP32);
+        addDetectorConfigurations(configurations, YoloDetector.Model.INT8_QDQ);
         return configurations;
     }
 
-    private static void addModelConfigurations(
+    private static void addClassifierConfigurations(
             List<Configuration> configurations, OnnxClassifier.Model model) {
+        String displayName = model.getDisplayName();
         for (int threads : new int[]{1, 2, 4}) {
             configurations.add(new Configuration(
+                    ModelKind.CLASSIFIER,
                     model,
-                    OnnxClassifier.ExecutionProvider.CPU,
+                    null,
+                    Provider.CPU,
                     threads,
-                    model.getDisplayName() + " / CPU ×" + threads + " 线程"));
+                    displayName + " / CPU ×" + threads + " 线程"));
         }
         configurations.add(new Configuration(
-                model,
-                OnnxClassifier.ExecutionProvider.XNNPACK,
-                1,
-                model.getDisplayName() + " / XNNPACK"));
+                ModelKind.CLASSIFIER, model, null, Provider.XNNPACK, 1,
+                displayName + " / XNNPACK"));
         configurations.add(new Configuration(
-                model,
-                OnnxClassifier.ExecutionProvider.NNAPI,
-                1,
-                model.getDisplayName() + " / NNAPI"));
+                ModelKind.CLASSIFIER, model, null, Provider.NNAPI, 1,
+                displayName + " / NNAPI"));
+    }
+
+    private static void addDetectorConfigurations(
+            List<Configuration> configurations, YoloDetector.Model model) {
+        String displayName = model.getDisplayName();
+        for (int threads : new int[]{1, 2, 4}) {
+            configurations.add(new Configuration(
+                    ModelKind.DETECTOR,
+                    null,
+                    model,
+                    Provider.CPU,
+                    threads,
+                    displayName + " / CPU ×" + threads + " 线程"));
+        }
+        configurations.add(new Configuration(
+                ModelKind.DETECTOR, null, model, Provider.XNNPACK, 1,
+                displayName + " / XNNPACK"));
+        configurations.add(new Configuration(
+                ModelKind.DETECTOR, null, model, Provider.NNAPI, 1,
+                displayName + " / NNAPI"));
     }
 
     private static final class Configuration {
-        private final OnnxClassifier.Model model;
-        private final OnnxClassifier.ExecutionProvider provider;
+        private final ModelKind kind;
+        private final OnnxClassifier.Model classifierModel;
+        private final YoloDetector.Model detectorModel;
+        private final Provider provider;
         private final int threads;
         private final String label;
 
         private Configuration(
-                OnnxClassifier.Model model,
-                OnnxClassifier.ExecutionProvider provider,
+                ModelKind kind,
+                OnnxClassifier.Model classifierModel,
+                YoloDetector.Model detectorModel,
+                Provider provider,
                 int threads,
                 String label) {
-            this.model = model;
+            this.kind = kind;
+            this.classifierModel = classifierModel;
+            this.detectorModel = detectorModel;
             this.provider = provider;
             this.threads = threads;
             this.label = label;
+        }
+
+        String displayName() {
+            return kind == ModelKind.DETECTOR
+                    ? detectorModel.getDisplayName() : classifierModel.getDisplayName();
+        }
+
+        String assetKey() {
+            return kind == ModelKind.DETECTOR
+                    ? detectorModel.getAssetKey() : classifierModel.getAssetKey();
         }
     }
 

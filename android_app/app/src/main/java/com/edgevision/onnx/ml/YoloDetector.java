@@ -141,6 +141,11 @@ public final class YoloDetector {
         }
     }
 
+    /** 供 benchmark 在创建 Session 前对 SessionOptions 做定制（如 enableProfiling）。 */
+    public interface SessionOptionsTuner {
+        void tune(OrtSession.SessionOptions options) throws OrtException;
+    }
+
     public interface InitCallback {
         void onReady(String providerDescription);
 
@@ -320,6 +325,45 @@ public final class YoloDetector {
         }
     }
 
+    /** 同步检测结果，保留纳秒精度，供 benchmark 分阶段统计。 */
+    public static final class TimedDetection {
+        private final List<Detection> detections;
+        private final long preprocessNanos;
+        private final long inferenceNanos;
+        private final long postprocessNanos;
+
+        private TimedDetection(
+                List<Detection> detections,
+                long preprocessNanos,
+                long inferenceNanos,
+                long postprocessNanos) {
+            this.detections = detections;
+            this.preprocessNanos = preprocessNanos;
+            this.inferenceNanos = inferenceNanos;
+            this.postprocessNanos = postprocessNanos;
+        }
+
+        public List<Detection> getDetections() {
+            return detections;
+        }
+
+        public long getPreprocessNanos() {
+            return preprocessNanos;
+        }
+
+        public long getInferenceNanos() {
+            return inferenceNanos;
+        }
+
+        public long getPostprocessNanos() {
+            return postprocessNanos;
+        }
+
+        public long getTotalNanos() {
+            return preprocessNanos + inferenceNanos + postprocessNanos;
+        }
+    }
+
     private final Context appContext;
     private final Model model;
     private final ExecutionProvider requestedProvider;
@@ -329,6 +373,7 @@ public final class YoloDetector {
     private final ExecutorService executor;
     private final Handler mainHandler;
     private final Object sessionLock = new Object();
+    private final SessionOptionsTuner sessionOptionsTuner;
 
     private volatile OrtSession session;
     private volatile String actualProvider = "未加载";
@@ -342,12 +387,25 @@ public final class YoloDetector {
             int intraOpThreads,
             float confidenceThreshold,
             float nmsIouThreshold) {
+        this(context, model, provider, intraOpThreads,
+                confidenceThreshold, nmsIouThreshold, null);
+    }
+
+    private YoloDetector(
+            Context context,
+            Model model,
+            ExecutionProvider provider,
+            int intraOpThreads,
+            float confidenceThreshold,
+            float nmsIouThreshold,
+            SessionOptionsTuner sessionOptionsTuner) {
         this.appContext = context.getApplicationContext();
         this.model = model;
         this.requestedProvider = provider;
         this.intraOpThreads = intraOpThreads;
         this.confidenceThreshold = confidenceThreshold;
         this.nmsIouThreshold = nmsIouThreshold;
+        this.sessionOptionsTuner = sessionOptionsTuner;
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(
@@ -413,6 +471,32 @@ public final class YoloDetector {
         }
     }
 
+    /**
+     * 创建不进入全局缓存的一次性实例，供 benchmark 的单帧 profiling 使用。
+     * 这样 profiling Session 不会污染正式测量的 Session 缓存，也能独立释放。
+     */
+    public static YoloDetector createTransient(
+            Context context,
+            Model model,
+            ExecutionProvider provider,
+            int intraOpThreads,
+            SessionOptionsTuner sessionOptionsTuner) {
+        if (context == null) {
+            throw new IllegalArgumentException("Context 不能为空");
+        }
+        Model selectedModel = model == null ? Model.FP32 : model;
+        ExecutionProvider selectedProvider = provider == null ? ExecutionProvider.CPU : provider;
+        int threads = Math.max(1, Math.min(4, intraOpThreads));
+        return new YoloDetector(
+                context,
+                selectedModel,
+                selectedProvider,
+                threads,
+                CONFIDENCE_THRESHOLD,
+                NMS_IOU_THRESHOLD,
+                sessionOptionsTuner);
+    }
+
     public Model getModel() {
         return model;
     }
@@ -431,6 +515,42 @@ public final class YoloDetector {
 
     public float getNmsIouThreshold() {
         return nmsIouThreshold;
+    }
+
+    /** 同步加载 Session；仅由后台 benchmark 线程调用。 */
+    public void ensureSessionLoaded() throws Exception {
+        ensureSession();
+    }
+
+    /** 同步执行一次完整检测，仅由 benchmark 后台线程调用。 */
+    public TimedDetection detectSync(Bitmap bitmap) throws Exception {
+        return executeTimedDetection(bitmap);
+    }
+
+    /** 释放 Session，供 benchmark 在不同配置间回收内存并重新测量冷启动。 */
+    public void releaseSession() {
+        synchronized (sessionLock) {
+            if (session != null) {
+                try {
+                    session.close();
+                } catch (OrtException error) {
+                    Log.w(TAG, "Session 释放失败", error);
+                }
+                session = null;
+            }
+            actualProvider = "未加载";
+            loadFailure = null;
+        }
+    }
+
+    /** 结束 profiling 并返回 ONNX Runtime 写出的 JSON 文件路径。 */
+    public String endProfiling() throws OrtException {
+        synchronized (sessionLock) {
+            if (session == null) {
+                return null;
+            }
+            return session.endProfiling();
+        }
     }
 
     /** 在后台线程预热 OrtSession；不调用时 detectAsync 也会懒加载。 */
@@ -471,6 +591,21 @@ public final class YoloDetector {
     }
 
     private DetectionResult executeDetection(Bitmap bitmap) throws Exception {
+        TimedDetection timed = executeTimedDetection(bitmap);
+        LetterboxMeta meta = computeLetterboxMeta(bitmap.getWidth(), bitmap.getHeight());
+        return new DetectionResult(
+                timed.getDetections(),
+                meta.getOriginalWidth(),
+                meta.getOriginalHeight(),
+                toMillis(timed.getPreprocessNanos()),
+                toMillis(timed.getInferenceNanos()),
+                toMillis(timed.getPostprocessNanos()),
+                toMillis(timed.getTotalNanos()),
+                model.getDisplayName(),
+                actualProvider);
+    }
+
+    private TimedDetection executeTimedDetection(Bitmap bitmap) throws Exception {
         OrtSession activeSession = ensureSession();
         long startNanos = System.nanoTime();
         LetterboxMeta meta = computeLetterboxMeta(bitmap.getWidth(), bitmap.getHeight());
@@ -508,17 +643,11 @@ public final class YoloDetector {
             postprocessEnd = System.nanoTime();
         }
 
-        long totalNanos = postprocessEnd - startNanos;
-        return new DetectionResult(
+        return new TimedDetection(
                 detections,
-                meta.getOriginalWidth(),
-                meta.getOriginalHeight(),
-                toMillis(preprocessEnd - startNanos),
-                toMillis(inferenceEnd - preprocessEnd),
-                toMillis(postprocessEnd - inferenceEnd),
-                toMillis(totalNanos),
-                model.getDisplayName(),
-                actualProvider);
+                preprocessEnd - startNanos,
+                inferenceEnd - preprocessEnd,
+                postprocessEnd - inferenceEnd);
     }
 
     /** 与 yolo_preprocess.py 的 _round_half_up 和 pad 计算保持一致。 */
@@ -780,6 +909,7 @@ public final class YoloDetector {
             }
             try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
                 options.addNnapi();
+                tuneSessionOptions(options);
                 OrtSession created = getEnvironment().createSession(modelBytes, options);
                 actualProvider = "NNAPIExecutionProvider";
                 return created;
@@ -792,6 +922,7 @@ public final class YoloDetector {
         if (requestedProvider == ExecutionProvider.XNNPACK) {
             try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
                 options.addXnnpack(Collections.emptyMap());
+                tuneSessionOptions(options);
                 OrtSession created = getEnvironment().createSession(modelBytes, options);
                 actualProvider = "XNNPACKExecutionProvider";
                 return created;
@@ -808,11 +939,18 @@ public final class YoloDetector {
             throws OrtException {
         try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
             options.setIntraOpNumThreads(intraOpThreads);
+            tuneSessionOptions(options);
             OrtSession created = getEnvironment().createSession(modelBytes, options);
             actualProvider = fallbackDescription != null
                     ? fallbackDescription
                     : "CPUExecutionProvider ×" + intraOpThreads + " 线程";
             return created;
+        }
+    }
+
+    private void tuneSessionOptions(OrtSession.SessionOptions options) throws OrtException {
+        if (sessionOptionsTuner != null) {
+            sessionOptionsTuner.tune(options);
         }
     }
 
