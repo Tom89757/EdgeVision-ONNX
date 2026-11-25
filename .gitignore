@@ -43,3 +43,10 @@ backend_service/events.db-journal
 
 # Codex 后台执行日志
 .codex_logs/
+
+# YOLO 权重与中间导出产物（可重新下载，不入库）
+model_pipeline/yolov8n.pt
+model_pipeline/yolov8n.onnx
+
+# 数据集替换时的旧数据备份
+model_pipeline/legacy_datasets/
