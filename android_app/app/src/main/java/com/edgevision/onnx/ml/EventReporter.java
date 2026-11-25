@@ -81,11 +81,20 @@ public final class EventReporter {
     public void reportPetEvent(final ImageNetLabels.Prediction pet,
                                final Bitmap thumbnail,
                                final Callback callback) {
+        reportPetEvent(pet.getChineseName(), pet.getConfidence(), thumbnail, callback);
+    }
+
+    /** 检测链路复用的通用上报入口；分类链路仍可使用上面的 Prediction 重载。 */
+    public void reportPetEvent(final String category,
+                               final float confidence,
+                               final Bitmap thumbnail,
+                               final Callback callback) {
         final String idempotencyKey = UUID.randomUUID().toString();
         try {
             executor.execute(() -> {
                 try {
-                    String eventId = postWithRetry(pet, thumbnail, idempotencyKey);
+                    String eventId = postWithRetry(
+                            category, confidence, thumbnail, idempotencyKey);
                     mainHandler.post(() -> callback.onSuccess(eventId));
                 } catch (Throwable error) {
                     Log.e(TAG, "事件上报失败", error);
@@ -97,12 +106,13 @@ public final class EventReporter {
         }
     }
 
-    private String postWithRetry(ImageNetLabels.Prediction pet, Bitmap thumbnail, String key)
+    private String postWithRetry(
+            String category, float confidence, Bitmap thumbnail, String key)
             throws Exception {
         Exception last = null;
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
-                return post(pet, thumbnail, key);
+                return post(category, confidence, thumbnail, key);
             } catch (Exception error) {
                 last = error;
                 Log.w(TAG, "上报第 " + attempt + " 次失败：" + error.getMessage());
@@ -111,12 +121,12 @@ public final class EventReporter {
         throw last == null ? new IllegalStateException("上报失败") : last;
     }
 
-    private String post(ImageNetLabels.Prediction pet, Bitmap thumbnail, String key)
+    private String post(String category, float confidence, Bitmap thumbnail, String key)
             throws Exception {
         JSONObject body = new JSONObject();
         body.put("thumbnail", bitmapToBase64(thumbnail));
-        body.put("category", pet.getChineseName());
-        body.put("confidence", pet.getConfidence());
+        body.put("category", category);
+        body.put("confidence", confidence);
         body.put("timestamp", nowUtcIso());
         body.put("device_id", deviceId);
 

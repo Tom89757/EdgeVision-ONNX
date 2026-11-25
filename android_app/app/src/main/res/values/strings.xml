@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">EdgeVision ONNX</string>
-    <string name="main_subtitle">MobileNetV2 端侧分类演示：相册离线打标与宠物实时监控</string>
+    <string name="main_subtitle">端侧视觉闭环：相册 MobileNetV2 分类 + 监控 YOLOv8n 检测</string>
     <string name="asset_title">模型资产校验</string>
     <string name="asset_checking">正在校验 assets 中的模型大小与 SHA-256…</string>
     <string name="asset_ok">资产校验通过：%1$d 个模型，共 %2$d 字节</string>
@@ -32,8 +32,14 @@
     <string name="monitor_waiting_permission">等待相机权限…</string>
     <string name="monitor_permission_denied">未授予相机权限，无法启动实时监控。</string>
     <string name="monitor_idle">正在启动 CameraX…</string>
-    <string name="monitor_running">监控中：约 2 FPS 分析，上一帧未完成时自动丢帧</string>
-    <string name="monitor_no_pet">当前画面未发现猫/狗</string>
+    <string name="monitor_running">监控中：YOLOv8n 320×320 检测，约 2 FPS，上一帧未完成时自动丢帧</string>
+    <string name="monitor_guard_normal">端侧治理：正常 · 目标 2 FPS · 云端上报开启</string>
+    <string name="monitor_guard_degraded">端侧治理：%1$s · 目标 0.5 FPS · 暂停云端上报</string>
+    <string name="monitor_no_pet">当前画面未发现 person / cat / dog</string>
+    <string name="monitor_no_detection">当前画面未发现 person / cat / dog</string>
+    <string name="monitor_detection_summary">检测到 %1$d 个目标：人 %2$d / 猫 %3$d / 狗 %4$d · %5$s</string>
+    <string name="monitor_detection_top">最高置信度：%1$s %2$.2f%% · 预处理 %3$d ms · 推理 %4$d ms · 后处理 %5$d ms</string>
+    <string name="monitor_detection_latency">预处理 %1$d ms · 推理 %2$d ms · 后处理 %3$d ms · 总计 %4$d ms</string>
     <string name="monitor_pet">检测到猫/狗相关类别：%1$s</string>
     <string name="monitor_pet_event">%1$s  %2$s  %3$.2f%%</string>
     <string name="monitor_current">当前 Top-1：%1$s（class %2$d，%3$.2f%%）</string>

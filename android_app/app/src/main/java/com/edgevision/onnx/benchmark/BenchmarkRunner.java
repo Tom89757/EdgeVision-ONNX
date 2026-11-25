@@ -12,16 +12,27 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * 真机多后端 benchmark 执行器。
  *
  * 每条配置先单独加载 Session 并计时冷启动，再测量首帧；随后预热 5 帧，
  * 连续测量 50 帧。每帧耗时严格拆为预处理、纯推理、后处理三部分。
+ *
+ * 稳态测量结束后，再用独立 Session 开启 ONNX Runtime profiling 跑单帧，
+ * 导出包含 Node/EP 耗时的 trace JSON，并把 provider 与 Top-N 节点汇总写入结果。
  */
 public final class BenchmarkRunner {
     public static final int WARMUP_FRAMES = 5;
@@ -95,6 +106,7 @@ public final class BenchmarkRunner {
         private final double totalP95Ms;
         private final double pssMb;
         private final String error;
+        private final ProfilingCapture profiling;
 
         private Result(
                 OnnxClassifier.Model model,
@@ -112,7 +124,8 @@ public final class BenchmarkRunner {
                 double totalP50Ms,
                 double totalP95Ms,
                 double pssMb,
-                String error) {
+                String error,
+                ProfilingCapture profiling) {
             this.model = model;
             this.requestedProvider = requestedProvider;
             this.requestedThreads = requestedThreads;
@@ -129,6 +142,7 @@ public final class BenchmarkRunner {
             this.totalP95Ms = totalP95Ms;
             this.pssMb = pssMb;
             this.error = error;
+            this.profiling = profiling;
         }
 
         private static Result failed(
@@ -149,7 +163,8 @@ public final class BenchmarkRunner {
                     0.0,
                     0.0,
                     0.0,
-                    error);
+                    error,
+                    null);
         }
 
         public OnnxClassifier.Model getModel() {
@@ -216,6 +231,14 @@ public final class BenchmarkRunner {
             return error;
         }
 
+        public String getProfilingPath() {
+            return profiling == null ? null : profiling.path;
+        }
+
+        public String getProfilingError() {
+            return profiling == null ? null : profiling.error;
+        }
+
         public boolean isSuccessful() {
             return error == null;
         }
@@ -225,6 +248,19 @@ public final class BenchmarkRunner {
                     ? "CPU ×" + requestedThreads + " 线程"
                     : requestedProvider.name() + "（线程自动）";
             return model.getDisplayName() + " / " + providerLabel;
+        }
+    }
+
+    /** 单帧 profiling 的导出文件与汇总；失败时保留错误信息，不影响主测量结果。 */
+    private static final class ProfilingCapture {
+        private final String path;
+        private final JSONObject summary;
+        private final String error;
+
+        private ProfilingCapture(String path, JSONObject summary, String error) {
+            this.path = path;
+            this.summary = summary;
+            this.error = error;
         }
     }
 
@@ -264,6 +300,9 @@ public final class BenchmarkRunner {
         method.put("top_k", TOP_K);
         method.put("timing_definition", "预处理(含输入 Tensor 构造) + session.run + 后处理");
         method.put("input", "640x480 ARGB_8888 合成图，缩放到 224x224");
+        method.put("profiling",
+                "稳态测量后用独立 Session 开启 enableProfiling 并执行单帧；"
+                        + "profile JSON 的 Node.dur 单位为微秒，args.provider 为实际执行 EP");
         root.put("method", method);
 
         JSONArray resultArray = new JSONArray();
@@ -291,6 +330,19 @@ public final class BenchmarkRunner {
                         result.totalP95Ms));
             } else {
                 item.put("error", result.error);
+            }
+            if (result.profiling != null) {
+                JSONObject profilingJson = new JSONObject();
+                if (result.profiling.path != null) {
+                    profilingJson.put("profile_file", result.profiling.path);
+                }
+                if (result.profiling.summary != null) {
+                    profilingJson.put("summary", result.profiling.summary);
+                }
+                if (result.profiling.error != null) {
+                    profilingJson.put("error", result.profiling.error);
+                }
+                item.put("profiling", profilingJson);
             }
             resultArray.put(item);
         }
@@ -349,6 +401,9 @@ public final class BenchmarkRunner {
             double[] totalSummary = percentileSummary(total);
             double pssMb = currentPssMb();
 
+            classifier.releaseSession();
+            ProfilingCapture profiling = captureProfiling(configuration, benchmarkBitmap);
+
             return new Result(
                     configuration.model,
                     configuration.provider,
@@ -365,7 +420,8 @@ public final class BenchmarkRunner {
                     totalSummary[0],
                     totalSummary[1],
                     pssMb,
-                    null);
+                    null,
+                    profiling);
         } catch (Throwable error) {
             actualProvider = classifier.getActualProvider();
             String message = error.getMessage() == null
@@ -373,6 +429,246 @@ public final class BenchmarkRunner {
             return Result.failed(configuration, actualProvider, message);
         } finally {
             classifier.releaseSession();
+        }
+    }
+
+    /**
+     * 用独立 Session 跑单帧 profiling。这里显式调用 SessionOptions.enableProfiling，
+     * 因此 profile 文件只覆盖一次 session.run，不会混入 50 帧稳态测量的噪声。
+     */
+    private ProfilingCapture captureProfiling(Configuration configuration, Bitmap benchmarkBitmap) {
+        String profilePath = null;
+        try {
+            File directory = profilingDirectory();
+            String prefixName = String.format(
+                    Locale.ROOT,
+                    "profile_%s_%s_%d_%d",
+                    configuration.model.getAssetKey(),
+                    configuration.provider.name().toLowerCase(Locale.ROOT),
+                    configuration.threads,
+                    System.currentTimeMillis());
+            String prefixPath = new File(directory, prefixName).getAbsolutePath();
+
+            OnnxClassifier profiler = OnnxClassifier.createTransient(
+                    appContext,
+                    configuration.model,
+                    configuration.provider,
+                    configuration.threads,
+                    options -> options.enableProfiling(prefixPath));
+            try {
+                profiler.ensureSessionLoaded();
+                profiler.classifySync(benchmarkBitmap, TOP_K);
+                profilePath = profiler.endProfiling();
+                if (profilePath == null || !new File(profilePath).isFile()) {
+                    profilePath = findProfileFile(directory, prefixName);
+                }
+                JSONObject summary = summarizeProfile(profilePath, profiler.getActualProvider());
+                return new ProfilingCapture(profilePath, summary, null);
+            } finally {
+                profiler.releaseSession();
+            }
+        } catch (Throwable error) {
+            String message = error.getMessage() == null
+                    ? error.getClass().getSimpleName() : error.getMessage();
+            return new ProfilingCapture(profilePath, null, message);
+        }
+    }
+
+    private File profilingDirectory() throws IOException {
+        File directory = appContext.getExternalFilesDir("profiling");
+        if (directory == null) {
+            directory = new File(appContext.getFilesDir(), "profiling");
+        }
+        if (!directory.exists() && !directory.mkdirs()) {
+            throw new IOException("无法创建 profiling 目录：" + directory);
+        }
+        if (!directory.isDirectory()) {
+            throw new IOException("profiling 路径不是目录：" + directory);
+        }
+        return directory;
+    }
+
+    /** end_profiling() 未返回可用路径时，按前缀选择目录中最新的 profile 文件。 */
+    private static String findProfileFile(File directory, String prefixName) {
+        File[] files = directory.listFiles();
+        File newest = null;
+        if (files != null) {
+            for (File file : files) {
+                if (!file.isFile() || !file.getName().startsWith(prefixName)) {
+                    continue;
+                }
+                if (newest == null || file.lastModified() > newest.lastModified()) {
+                    newest = file;
+                }
+            }
+        }
+        return newest == null ? null : newest.getAbsolutePath();
+    }
+
+    /**
+     * 把 ORT Chrome trace 格式的 profile 压缩成便于报告引用的摘要。
+     * Node 事件的 dur 单位为微秒；provider 字段即该节点实际执行的 EP。
+     */
+    private static JSONObject summarizeProfile(String profilePath, String actualProvider)
+            throws IOException, JSONException {
+        if (profilePath == null) {
+            throw new IOException("ONNX Runtime 未返回 profiling 文件路径");
+        }
+        File profileFile = new File(profilePath);
+        if (!profileFile.isFile()) {
+            throw new IOException("profiling 文件不存在：" + profilePath);
+        }
+
+        String content = new String(
+                Files.readAllBytes(profileFile.toPath()), StandardCharsets.UTF_8);
+        JSONObject root = new JSONObject(content);
+        JSONArray events = root.optJSONArray("traceEvents");
+        if (events == null) {
+            throw new JSONException("profiling JSON 缺少 traceEvents");
+        }
+
+        Map<String, ProviderTotal> providerTotals = new LinkedHashMap<>();
+        List<NodeTiming> nodes = new ArrayList<>();
+        long sessionRunUs = 0L;
+        long totalNodeUs = 0L;
+        int quantizeNodes = 0;
+        int dequantizeNodes = 0;
+        int memcpyNodes = 0;
+        long memcpyUs = 0L;
+
+        for (int index = 0; index < events.length(); index++) {
+            JSONObject event = events.optJSONObject(index);
+            if (event == null) {
+                continue;
+            }
+            String category = event.optString("cat", "");
+            String name = event.optString("name", "");
+            long durationUs = Math.max(0L, event.optLong("dur", 0L));
+
+            if ("Session".equals(category) && name.startsWith("sequential_executor")) {
+                sessionRunUs += durationUs;
+                continue;
+            }
+            if (!"Node".equals(category)) {
+                continue;
+            }
+
+            JSONObject args = event.optJSONObject("args");
+            String provider = args == null ? "" : args.optString("provider", "");
+            String opName = args == null ? "" : args.optString("op_name", "");
+            if (provider.isEmpty()) {
+                provider = "unknown";
+            }
+            if (opName.startsWith("QuantizeLinear")) {
+                quantizeNodes++;
+            } else if (opName.startsWith("DequantizeLinear")) {
+                dequantizeNodes++;
+            }
+            if (opName.contains("Memcpy")) {
+                memcpyNodes++;
+                memcpyUs += durationUs;
+            }
+
+            ProviderTotal providerTotal = providerTotals.get(provider);
+            if (providerTotal == null) {
+                providerTotal = new ProviderTotal();
+                providerTotals.put(provider, providerTotal);
+            }
+            providerTotal.nodeCount++;
+            providerTotal.totalUs += durationUs;
+            totalNodeUs += durationUs;
+            nodes.add(new NodeTiming(name, opName, provider, durationUs));
+        }
+
+        List<Map.Entry<String, ProviderTotal>> orderedProviders =
+                new ArrayList<>(providerTotals.entrySet());
+        orderedProviders.sort((left, right) ->
+                Long.compare(right.getValue().totalUs, left.getValue().totalUs));
+
+        JSONArray providers = new JSONArray();
+        long cpuNodeUs = 0L;
+        int cpuNodeCount = 0;
+        for (Map.Entry<String, ProviderTotal> entry : orderedProviders) {
+            ProviderTotal total = entry.getValue();
+            JSONObject item = new JSONObject();
+            item.put("provider", entry.getKey());
+            item.put("node_count", total.nodeCount);
+            item.put("total_us", total.totalUs);
+            item.put("node_time_percent", totalNodeUs == 0L
+                    ? 0.0 : round(total.totalUs * 100.0 / totalNodeUs));
+            providers.put(item);
+
+            if (entry.getKey().toUpperCase(Locale.ROOT).contains("CPU")) {
+                cpuNodeCount += total.nodeCount;
+                cpuNodeUs += total.totalUs;
+            }
+        }
+
+        nodes.sort(Comparator.comparingLong((NodeTiming node) -> node.durationUs).reversed());
+        JSONArray topNodes = new JSONArray();
+        int topLimit = Math.min(15, nodes.size());
+        for (int index = 0; index < topLimit; index++) {
+            NodeTiming node = nodes.get(index);
+            JSONObject item = new JSONObject();
+            item.put("name", node.name);
+            item.put("op_name", node.opName);
+            item.put("provider", node.provider);
+            item.put("dur_us", node.durationUs);
+            topNodes.put(item);
+        }
+
+        JSONArray cpuTopNodes = new JSONArray();
+        int cpuTopLimit = 0;
+        for (NodeTiming node : nodes) {
+            if (!node.provider.toUpperCase(Locale.ROOT).contains("CPU")) {
+                continue;
+            }
+            JSONObject item = new JSONObject();
+            item.put("name", node.name);
+            item.put("op_name", node.opName);
+            item.put("dur_us", node.durationUs);
+            cpuTopNodes.put(item);
+            if (++cpuTopLimit >= 15) {
+                break;
+            }
+        }
+
+        JSONObject summary = new JSONObject();
+        summary.put("profile_unit", "us");
+        summary.put("actual_provider", actualProvider == null ? "unknown" : actualProvider);
+        summary.put("session_run_us", sessionRunUs);
+        summary.put("node_count", nodes.size());
+        summary.put("node_total_us", totalNodeUs);
+        summary.put("cpu_provider_nodes", cpuNodeCount);
+        summary.put("cpu_provider_total_us", cpuNodeUs);
+        summary.put("cpu_provider_time_percent", totalNodeUs == 0L
+                ? 0.0 : round(cpuNodeUs * 100.0 / totalNodeUs));
+        summary.put("quantize_linear_nodes", quantizeNodes);
+        summary.put("dequantize_linear_nodes", dequantizeNodes);
+        summary.put("memcpy_nodes", memcpyNodes);
+        summary.put("memcpy_total_us", memcpyUs);
+        summary.put("providers", providers);
+        summary.put("top_nodes", topNodes);
+        summary.put("cpu_top_nodes", cpuTopNodes);
+        return summary;
+    }
+
+    private static final class ProviderTotal {
+        private int nodeCount;
+        private long totalUs;
+    }
+
+    private static final class NodeTiming {
+        private final String name;
+        private final String opName;
+        private final String provider;
+        private final long durationUs;
+
+        private NodeTiming(String name, String opName, String provider, long durationUs) {
+            this.name = name;
+            this.opName = opName;
+            this.provider = provider;
+            this.durationUs = durationUs;
         }
     }
 

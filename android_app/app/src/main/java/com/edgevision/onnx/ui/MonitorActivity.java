@@ -23,8 +23,9 @@ import androidx.core.content.ContextCompat;
 
 import com.edgevision.onnx.R;
 import com.edgevision.onnx.ml.EventReporter;
-import com.edgevision.onnx.ml.ImageNetLabels;
 import com.edgevision.onnx.ml.OnnxClassifier;
+import com.edgevision.onnx.ml.ThermalGuard;
+import com.edgevision.onnx.ml.YoloDetector;
 import com.google.android.material.button.MaterialButton;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -38,26 +39,34 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** 宠物监控：CameraX 实时取帧，2 FPS 节流并在上一帧未完成时主动丢帧。 */
+/**
+ * 宠物监控：CameraX 实时取帧，YOLOv8n 检测 person/cat/dog 并在预览上画框。
+ *
+ * <p>正常保留 2 FPS 节流与上一帧未完成时丢帧的背压策略；ThermalGuard 在热、低内存或
+ * p95 延迟熔断时会把目标帧率降到 0.5 FPS 并暂停上报。MobileNetV2 分类链路继续由
+ * {@link OnnxClassifier} 与 {@link AlbumActivity} 提供；本页不删除分类能力，仅以注释预留
+ * “检测模型不可用时人工切回分类链路”的运维回退说明，不做自动回退。</p>
+ */
 public class MonitorActivity extends AppCompatActivity {
     private static final String TAG = "MonitorActivity";
-    private static final int TOP_K = 5;
-    private static final long ANALYSIS_INTERVAL_MS = 500L;
     private static final long PET_EVENT_INTERVAL_MS = 5_000L;
-    private static final float PET_CONFIDENCE_THRESHOLD = 0.10f;
     private static final int MAX_EVENT_LINES = 6;
+    private static final int THUMBNAIL_MAX_SIZE = 224;
 
     private final AtomicBoolean analyzing = new AtomicBoolean(false);
     private final ArrayDeque<String> eventLines = new ArrayDeque<>();
 
     private ExecutorService analyzerExecutor;
-    private OnnxClassifier classifier;
+    private YoloDetector detector;
     private EventReporter eventReporter;
+    private ThermalGuard thermalGuard;
     private ProcessCameraProvider cameraProvider;
     private ImageAnalysis imageAnalysis;
 
     private PreviewView previewView;
+    private DetectionOverlayView detectionOverlay;
     private TextView monitorStatus;
+    private TextView thermalGuardStatus;
     private TextView currentResult;
     private TextView eventLog;
 
@@ -71,17 +80,38 @@ public class MonitorActivity extends AppCompatActivity {
         setContentView(R.layout.activity_monitor);
 
         previewView = findViewById(R.id.previewView);
+        detectionOverlay = findViewById(R.id.detectionOverlay);
         monitorStatus = findViewById(R.id.monitorStatus);
+        thermalGuardStatus = findViewById(R.id.thermalGuardStatus);
         currentResult = findViewById(R.id.currentResult);
         eventLog = findViewById(R.id.eventLog);
         MaterialButton backButton = findViewById(R.id.backButton);
 
-        OnnxClassifier.Model model = OnnxClassifier.Model.fromKey(
+        YoloDetector.Model model = YoloDetector.Model.fromKey(
                 getIntent().getStringExtra(OnnxClassifier.EXTRA_MODEL));
-        OnnxClassifier.ExecutionProvider provider = OnnxClassifier.ExecutionProvider.fromKey(
+        YoloDetector.ExecutionProvider provider = YoloDetector.ExecutionProvider.fromKey(
                 getIntent().getStringExtra(OnnxClassifier.EXTRA_PROVIDER));
-        classifier = OnnxClassifier.getInstance(getApplicationContext(), model, provider);
+        detector = YoloDetector.getInstance(getApplicationContext(), model, provider);
         eventReporter = EventReporter.getInstance(this);
+        thermalGuard = new ThermalGuard(this, this::updateThermalGuardStatus);
+        updateThermalGuardStatus(thermalGuard.getPolicy());
+
+        detector.initializeAsync(new YoloDetector.InitCallback() {
+            @Override
+            public void onReady(String providerDescription) {
+                Log.i(TAG, "YOLOv8n 已加载：" + providerDescription);
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                Log.e(TAG, "YOLOv8n 加载失败", error);
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                monitorStatus.setText(getString(
+                        R.string.monitor_error, errorMessage(error)));
+            }
+        });
 
         analyzerExecutor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "camera-frame-analyzer");
@@ -103,7 +133,8 @@ public class MonitorActivity extends AppCompatActivity {
     }
 
     private void requestCameraPermissionOrStart() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED) {
             startCamera();
         } else {
             monitorStatus.setText(R.string.monitor_waiting_permission);
@@ -113,7 +144,8 @@ public class MonitorActivity extends AppCompatActivity {
 
     private void startCamera() {
         monitorStatus.setText(R.string.monitor_idle);
-        ListenableFuture<ProcessCameraProvider> providerFuture = ProcessCameraProvider.getInstance(this);
+        ListenableFuture<ProcessCameraProvider> providerFuture =
+                ProcessCameraProvider.getInstance(this);
         providerFuture.addListener(() -> {
             if (isFinishing() || isDestroyed()) {
                 return;
@@ -123,10 +155,7 @@ public class MonitorActivity extends AppCompatActivity {
                 bindCameraUseCases();
             } catch (Exception error) {
                 Log.e(TAG, "相机启动失败", error);
-                String message = error.getMessage() == null
-                        ? error.getClass().getSimpleName()
-                        : error.getMessage();
-                monitorStatus.setText(getString(R.string.camera_error, message));
+                monitorStatus.setText(getString(R.string.camera_error, errorMessage(error)));
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -143,6 +172,7 @@ public class MonitorActivity extends AppCompatActivity {
 
         cameraProvider.unbindAll();
         bindPreferredCamera(preview, imageAnalysis);
+        detectionOverlay.clear();
         monitorStatus.setText(R.string.monitor_running);
     }
 
@@ -172,7 +202,7 @@ public class MonitorActivity extends AppCompatActivity {
             image.close();
             return;
         }
-        if (now - lastAnalysisAtMs < ANALYSIS_INTERVAL_MS) {
+        if (now - lastAnalysisAtMs < thermalGuard.getAnalysisIntervalMs()) {
             analyzing.set(false);
             image.close();
             return;
@@ -194,86 +224,138 @@ public class MonitorActivity extends AppCompatActivity {
 
         final Bitmap frameForAnalysis = frame;
         try {
-            classifier.classifyAsync(frameForAnalysis, TOP_K,
-                    new OnnxClassifier.ClassificationCallback() {
-                        @Override
-                        public void onResult(OnnxClassifier.ClassificationResult result) {
-                            // recycle 前降采样为 224x224 小图，供抓拍上报
-                            Bitmap thumb = Bitmap.createScaledBitmap(frameForAnalysis, 224, 224, true);
-                            frameForAnalysis.recycle();
-                            analyzing.set(false);
-                            if (isFinishing() || isDestroyed()) {
-                                thumb.recycle();
-                                return;
-                            }
-                            renderResult(result, thumb);
-                        }
+            detector.detectAsync(frameForAnalysis, new YoloDetector.DetectionCallback() {
+                @Override
+                public void onResult(YoloDetector.DetectionResult result) {
+                    if (isFinishing() || isDestroyed()) {
+                        frameForAnalysis.recycle();
+                        analyzing.set(false);
+                        return;
+                    }
+                    try {
+                        thermalGuard.recordFrameLatency(result.getTotalMs());
+                        renderDetections(result, frameForAnalysis);
+                    } catch (Throwable error) {
+                        Log.e(TAG, "检测结果渲染失败", error);
+                    } finally {
+                        frameForAnalysis.recycle();
+                        analyzing.set(false);
+                    }
+                }
 
-                        @Override
-                        public void onError(Throwable error) {
-                            frameForAnalysis.recycle();
-                            analyzing.set(false);
-                            Log.e(TAG, "实时分类失败", error);
-                            if (isFinishing() || isDestroyed()) {
-                                return;
-                            }
-                            String message = error.getMessage() == null
-                                    ? error.getClass().getSimpleName()
-                                    : error.getMessage();
-                            monitorStatus.setText(getString(R.string.monitor_error, message));
-                        }
-                    });
+                @Override
+                public void onError(Throwable error) {
+                    frameForAnalysis.recycle();
+                    analyzing.set(false);
+                    Log.e(TAG, "实时检测失败", error);
+                    if (isFinishing() || isDestroyed()) {
+                        return;
+                    }
+                    detectionOverlay.clear();
+                    monitorStatus.setText(getString(
+                            R.string.monitor_error, errorMessage(error)));
+                }
+            });
         } catch (RuntimeException error) {
             frameForAnalysis.recycle();
             analyzing.set(false);
-            Log.e(TAG, "提交实时分类失败", error);
+            Log.e(TAG, "提交实时检测失败", error);
         }
     }
 
-    private void renderResult(OnnxClassifier.ClassificationResult result, Bitmap thumb) {
-        List<ImageNetLabels.Prediction> predictions = result.getTopK();
-        if (predictions.isEmpty()) {
-            thumb.recycle();
-            currentResult.setText(R.string.monitor_no_pet);
+    private void renderDetections(YoloDetector.DetectionResult result, Bitmap frame) {
+        List<YoloDetector.Detection> detections = result.getDetections();
+        detectionOverlay.setDetections(
+                detections, result.getSourceWidth(), result.getSourceHeight());
+
+        if (detections.isEmpty()) {
+            monitorStatus.setText(R.string.monitor_no_detection);
+            currentResult.setText(getString(
+                    R.string.monitor_detection_latency,
+                    result.getPreprocessMs(),
+                    result.getInferenceMs(),
+                    result.getPostprocessMs(),
+                    result.getTotalMs()));
             return;
         }
 
-        ImageNetLabels.Prediction top = predictions.get(0);
+        int personCount = 0;
+        int catCount = 0;
+        int dogCount = 0;
+        for (YoloDetector.Detection detection : detections) {
+            if (detection.getClassId() == YoloDetector.CLASS_PERSON) {
+                personCount++;
+            } else if (detection.getClassId() == YoloDetector.CLASS_CAT) {
+                catCount++;
+            } else if (detection.getClassId() == YoloDetector.CLASS_DOG) {
+                dogCount++;
+            }
+        }
+
+        YoloDetector.Detection top = detections.get(0);
+        monitorStatus.setText(getString(
+                R.string.monitor_detection_summary,
+                detections.size(),
+                personCount,
+                catCount,
+                dogCount,
+                result.getProviderName()));
         currentResult.setText(getString(
-                R.string.monitor_current,
+                R.string.monitor_detection_top,
                 top.getChineseName(),
-                top.getClassIndex(),
-                top.getConfidence() * 100.0f));
+                top.getConfidence() * 100.0f,
+                result.getPreprocessMs(),
+                result.getInferenceMs(),
+                result.getPostprocessMs()));
 
-        ImageNetLabels.Prediction pet = findPetPrediction(predictions);
+        YoloDetector.Detection pet = findHighestPet(detections);
         if (pet == null) {
-            thumb.recycle();
-            monitorStatus.setText(R.string.monitor_no_pet);
             return;
         }
-
-        monitorStatus.setText(getString(R.string.monitor_pet, pet.getChineseName()));
         long now = SystemClock.elapsedRealtime();
-        if (now - lastPetEventAtMs >= PET_EVENT_INTERVAL_MS) {
-            lastPetEventAtMs = now;
-            recordPetEvent(pet, thumb);
-        } else {
-            thumb.recycle();
+        if (now - lastPetEventAtMs < PET_EVENT_INTERVAL_MS) {
+            return;
         }
+        lastPetEventAtMs = now;
+        Bitmap thumbnail = createThumbnail(frame);
+        if (thumbnail == null) {
+            Log.w(TAG, "抓拍缩略图生成失败，跳过本次上报");
+            return;
+        }
+        recordPetEvent(pet, thumbnail);
     }
 
-    private ImageNetLabels.Prediction findPetPrediction(
-            List<ImageNetLabels.Prediction> predictions) {
-        for (ImageNetLabels.Prediction prediction : predictions) {
-            if (ImageNetLabels.isPetClass(prediction.getClassIndex())
-                    && prediction.getConfidence() >= PET_CONFIDENCE_THRESHOLD) {
-                return prediction;
+    private YoloDetector.Detection findHighestPet(List<YoloDetector.Detection> detections) {
+        for (YoloDetector.Detection detection : detections) {
+            if (detection.getClassId() == YoloDetector.CLASS_CAT
+                    || detection.getClassId() == YoloDetector.CLASS_DOG) {
+                return detection;
             }
         }
         return null;
     }
 
-    private void recordPetEvent(ImageNetLabels.Prediction pet, Bitmap thumb) {
+    private Bitmap createThumbnail(Bitmap frame) {
+        try {
+            int width = frame.getWidth();
+            int height = frame.getHeight();
+            float scale = Math.min(
+                    1.0f, THUMBNAIL_MAX_SIZE / (float) Math.max(width, height));
+            int thumbWidth = Math.max(1, Math.round(width * scale));
+            int thumbHeight = Math.max(1, Math.round(height * scale));
+            Bitmap thumbnail = Bitmap.createScaledBitmap(
+                    frame, thumbWidth, thumbHeight, true);
+            if (thumbnail == frame) {
+                thumbnail = frame.copy(Bitmap.Config.ARGB_8888, false);
+            }
+            return thumbnail;
+        } catch (Throwable error) {
+            Log.e(TAG, "生成抓拍缩略图失败", error);
+            return null;
+        }
+    }
+
+    private void recordPetEvent(YoloDetector.Detection pet, Bitmap thumbnail) {
         String time = new SimpleDateFormat("HH:mm:ss", Locale.CHINA).format(new Date());
         String line = getString(
                 R.string.monitor_pet_event,
@@ -286,20 +368,30 @@ public class MonitorActivity extends AppCompatActivity {
         }
         eventLog.setText(String.join("\n", eventLines));
 
-        // 上报到后端（EventReporter 内部在后台线程压缩/发送，完成后回收缩略图）
-        eventReporter.reportPetEvent(pet, thumb, new EventReporter.Callback() {
-            @Override
-            public void onSuccess(String eventId) {
-                thumb.recycle();
-                Log.i(TAG, "事件已上报，event id=" + eventId);
-            }
+        if (!thermalGuard.isReportingAllowed()) {
+            thumbnail.recycle();
+            Log.i(TAG, "端侧治理降级，抓拍仅保留本地日志并暂停云端上报");
+            return;
+        }
 
-            @Override
-            public void onError(Throwable error) {
-                thumb.recycle();
-                Log.e(TAG, "事件上报失败", error);
-            }
-        });
+        // 复用既有 EventReporter；其内部在后台线程压缩/发送，完成后回收缩略图。
+        eventReporter.reportPetEvent(
+                pet.getChineseName(),
+                pet.getConfidence(),
+                thumbnail,
+                new EventReporter.Callback() {
+                    @Override
+                    public void onSuccess(String eventId) {
+                        thumbnail.recycle();
+                        Log.i(TAG, "事件已上报，event id=" + eventId);
+                    }
+
+                    @Override
+                    public void onError(Throwable error) {
+                        thumbnail.recycle();
+                        Log.e(TAG, "事件上报失败", error);
+                    }
+                });
     }
 
     private Bitmap imageProxyToBitmap(ImageProxy image) {
@@ -343,13 +435,53 @@ public class MonitorActivity extends AppCompatActivity {
         return transformed;
     }
 
+    private static String errorMessage(Throwable error) {
+        return error.getMessage() == null
+                ? error.getClass().getSimpleName() : error.getMessage();
+    }
+
+    private void updateThermalGuardStatus(ThermalGuard.Policy policy) {
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        if (policy.isDegraded()) {
+            thermalGuardStatus.setText(getString(
+                    R.string.monitor_guard_degraded, policy.getReason()));
+        } else {
+            thermalGuardStatus.setText(R.string.monitor_guard_normal);
+        }
+        Log.i(TAG, "端侧治理策略：" + policy);
+    }
+
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (thermalGuard != null) {
+            thermalGuard.onTrimMemory(level);
+        }
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        if (thermalGuard != null) {
+            thermalGuard.onLowMemory();
+        }
+    }
+
     @Override
     protected void onDestroy() {
+        if (thermalGuard != null) {
+            thermalGuard.close();
+        }
         if (imageAnalysis != null) {
             imageAnalysis.clearAnalyzer();
         }
         if (cameraProvider != null) {
             cameraProvider.unbindAll();
+        }
+        if (detectionOverlay != null) {
+            detectionOverlay.clear();
         }
         if (analyzerExecutor != null) {
             analyzerExecutor.shutdownNow();

@@ -13,7 +13,17 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:implementationMode="compatible" />
+        app:implementationMode="compatible"
+        app:scaleType="fillCenter" />
+
+    <com.edgevision.onnx.ui.DetectionOverlayView
+        android:id="@+id/detectionOverlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintBottom_toTopOf="@id/panel"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <LinearLayout
         android:id="@+id/panel"
@@ -35,6 +45,15 @@
             android:textColor="@color/monitor_text"
             android:textSize="14sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/thermalGuardStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/monitor_guard_normal"
+            android:textColor="@color/monitor_text"
+            android:textSize="12sp" />
 
         <TextView
             android:id="@+id/currentResult"

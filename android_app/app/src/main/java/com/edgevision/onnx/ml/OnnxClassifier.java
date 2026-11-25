@@ -47,6 +47,7 @@ public final class OnnxClassifier {
     private final int intraOpThreads;
     private final ExecutorService executor;
     private final Handler mainHandler;
+    private final SessionOptionsTuner sessionOptionsTuner;
     private final Object sessionLock = new Object();
 
     private volatile OrtSession session;
@@ -119,6 +120,14 @@ public final class OnnxClassifier {
         void onResult(ClassificationResult result);
 
         void onError(Throwable error);
+    }
+
+    /**
+     * 允许 benchmark 在 Session 创建前注入额外的 SessionOptions 配置。
+     * 目前用于 ONNX Runtime profiling：options.enableProfiling(profilePrefix)。
+     */
+    public interface SessionOptionsTuner {
+        void tune(OrtSession.SessionOptions options) throws OrtException;
     }
 
     public static final class ClassificationResult {
@@ -217,10 +226,20 @@ public final class OnnxClassifier {
 
     private OnnxClassifier(
             Context context, Model model, ExecutionProvider provider, int intraOpThreads) {
+        this(context, model, provider, intraOpThreads, null);
+    }
+
+    private OnnxClassifier(
+            Context context,
+            Model model,
+            ExecutionProvider provider,
+            int intraOpThreads,
+            SessionOptionsTuner sessionOptionsTuner) {
         this.appContext = context.getApplicationContext();
         this.model = model;
         this.requestedProvider = provider;
         this.intraOpThreads = intraOpThreads;
+        this.sessionOptionsTuner = sessionOptionsTuner;
         this.mainHandler = new Handler(Looper.getMainLooper());
         this.executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(
@@ -255,6 +274,26 @@ public final class OnnxClassifier {
             INSTANCES.put(key, created);
             return created;
         }
+    }
+
+    /**
+     * 创建不进入全局缓存的一次性实例，供 benchmark 的单帧 profiling 使用。
+     * 这样 profiling Session 不会污染正式测量的 Session 缓存，也能独立释放。
+     */
+    public static OnnxClassifier createTransient(
+            Context context,
+            Model model,
+            ExecutionProvider provider,
+            int intraOpThreads,
+            SessionOptionsTuner sessionOptionsTuner) {
+        if (context == null) {
+            throw new IllegalArgumentException("Context 不能为空");
+        }
+        Model selectedModel = model == null ? Model.FP32 : model;
+        ExecutionProvider selectedProvider = provider == null ? ExecutionProvider.CPU : provider;
+        int threads = Math.max(1, Math.min(4, intraOpThreads));
+        return new OnnxClassifier(
+                context, selectedModel, selectedProvider, threads, sessionOptionsTuner);
     }
 
     public Model getModel() {
@@ -301,6 +340,19 @@ public final class OnnxClassifier {
             }
             actualProvider = "未加载";
             loadFailure = null;
+        }
+    }
+
+    /**
+     * 结束 profiling 并返回 ONNX Runtime 写出的 JSON 文件路径。
+     * 只有通过 {@link SessionOptionsTuner} 开启过 profiling 的实例才应调用。
+     */
+    public String endProfiling() throws OrtException {
+        synchronized (sessionLock) {
+            if (session == null) {
+                return null;
+            }
+            return session.endProfiling();
         }
     }
 
@@ -452,6 +504,7 @@ public final class OnnxClassifier {
             }
             try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
                 options.addNnapi();
+                tuneSessionOptions(options);
                 OrtSession created = environment.createSession(modelBytes, options);
                 actualProvider = "NNAPIExecutionProvider";
                 return created;
@@ -464,6 +517,7 @@ public final class OnnxClassifier {
         if (requestedProvider == ExecutionProvider.XNNPACK) {
             try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
                 options.addXnnpack(Collections.emptyMap());
+                tuneSessionOptions(options);
                 OrtSession created = environment.createSession(modelBytes, options);
                 actualProvider = "XNNPACKExecutionProvider";
                 return created;
@@ -481,11 +535,18 @@ public final class OnnxClassifier {
             throws OrtException {
         try (OrtSession.SessionOptions options = new OrtSession.SessionOptions()) {
             options.setIntraOpNumThreads(intraOpThreads);
+            tuneSessionOptions(options);
             OrtSession created = environment.createSession(modelBytes, options);
             actualProvider = fallbackDescription != null
                     ? fallbackDescription
                     : "CPUExecutionProvider ×" + intraOpThreads + " 线程";
             return created;
+        }
+    }
+
+    private void tuneSessionOptions(OrtSession.SessionOptions options) throws OrtException {
+        if (sessionOptionsTuner != null) {
+            sessionOptionsTuner.tune(options);
         }
     }
 
